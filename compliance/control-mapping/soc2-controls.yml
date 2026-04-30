@@ -1,0 +1,143 @@
+# ══════════════════════════════════════════════════════════════════════════════
+# corpsec-ops-platform — SOC 2 Trust Services Criteria mapping
+# Mirror of python/compliance/controls/soc2.py for auditor review
+# ══════════════════════════════════════════════════════════════════════════════
+
+framework: SOC 2
+version: "2017"
+mapped_at: 2026-04-29
+owner: corpsec-team
+
+categories:
+  - id: CC1
+    name: Control Environment
+    controls:
+      - id: CC1.1
+        name: Integrity and Ethical Values
+        evidence_source: docs
+        evidence_method: export_policies
+        freshness_days: 365
+
+  - id: CC2
+    name: Communication and Information
+    controls:
+      - id: CC2.1
+        name: Internal Information Communication
+        evidence_source: docs
+        evidence_method: export_runbooks
+        freshness_days: 180
+
+  - id: CC6
+    name: Logical and Physical Access Controls
+    controls:
+      - id: CC6.1
+        name: Identity and Access Management
+        evidence_source: okta
+        evidence_method: export_users_and_roles
+        platform_implementation:
+          - Okta Developer Free as central IdP
+          - Quarterly user-role certification
+          - JIT privilege elevation via Python automation
+        freshness_days: 30
+      - id: CC6.2
+        name: Authentication - MFA
+        evidence_source: okta
+        evidence_method: export_mfa_policies
+        platform_implementation:
+          - Okta MFA enforced for all users
+          - Conditional access policies require MFA from non-corporate IPs
+          - 1Password requires MFA for admin actions
+        freshness_days: 30
+      - id: CC6.3
+        name: Vulnerability Management
+        evidence_source: wazuh
+        evidence_method: export_vulnerability_summary
+        platform_implementation:
+          - Wazuh vulnerability detector scans every 12h
+          - CrowdStrike Spotlight for endpoint vulns
+        freshness_days: 7
+      - id: CC6.6
+        name: Data Flow Controls (DLP)
+        evidence_source: dlp
+        evidence_method: export_dlp_policies
+        platform_implementation:
+          - Custom Python DLP engine with 8 policies
+          - Google Workspace native DLP rules
+          - Active response auto-quarantine on HIGH/CRITICAL
+        freshness_days: 30
+      - id: CC6.7
+        name: Data Encryption at Rest
+        evidence_source: intune
+        evidence_method: export_encryption_compliance
+        platform_implementation:
+          - Intune compliance policy enforces BitLocker (Win) / FileVault (macOS)
+          - Conditional access blocks non-encrypted devices
+        freshness_days: 14
+      - id: CC6.8
+        name: Malware Prevention
+        evidence_source: crowdstrike
+        evidence_method: export_edr_status
+        platform_implementation:
+          - CrowdStrike Falcon as primary EDR
+          - Wazuh rootkit detection as secondary
+          - Active response auto-isolate on critical detections
+        freshness_days: 7
+
+  - id: CC7
+    name: System Operations
+    controls:
+      - id: CC7.1
+        name: Configuration Management
+        evidence_source: ansible
+        evidence_method: export_compliance_audit
+        platform_implementation:
+          - Ansible compliance-audit playbook runs weekly
+          - Drift alerts via Wazuh rule 100800-100899
+        freshness_days: 30
+      - id: CC7.2
+        name: Security Monitoring (SIEM)
+        evidence_source: wazuh
+        evidence_method: export_alert_summary
+        platform_implementation:
+          - Wazuh aggregates Okta, CrowdStrike, GWS, 1Password, Intune logs
+          - Grafana SOC dashboards
+          - Alertmanager Slack routing
+        freshness_days: 7
+      - id: CC7.3
+        name: Incident Evaluation
+        evidence_source: thehive
+        evidence_method: export_case_metrics
+        platform_implementation:
+          - TheHive case management
+          - n8n alert-to-case auto-pipeline
+        freshness_days: 14
+      - id: CC7.4
+        name: Incident Response
+        evidence_source: thehive
+        evidence_method: export_response_metrics
+        platform_implementation:
+          - 8 IR runbooks (IR-001 through IR-008)
+          - 7 auto-remediation playbooks (PB-DLP-001..., PB-AI-001..., etc.)
+          - SLA tracking in TheHive
+        freshness_days: 14
+      - id: CC7.5
+        name: Recovery and RCA
+        evidence_source: thehive
+        evidence_method: export_closed_cases_with_rca
+        platform_implementation:
+          - TheHive case closure requires RCA field
+          - Lessons-learned review for HIGH+ cases
+        freshness_days: 30
+
+  - id: CC8
+    name: Change Management
+    controls:
+      - id: CC8.1
+        name: Change Management
+        evidence_source: git
+        evidence_method: export_recent_commits
+        platform_implementation:
+          - Git-based IaC for all configs
+          - GitHub PR review required
+          - Pre-commit hooks for validation
+        freshness_days: 7

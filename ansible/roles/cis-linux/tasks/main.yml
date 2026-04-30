@@ -1,0 +1,51 @@
+---
+# Minimal CIS Linux baseline (extends compliance-hardening-pipeline patterns)
+
+- name: CIS - disable root SSH login
+  lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: "^#?PermitRootLogin"
+    line: "PermitRootLogin no"
+  notify: restart sshd
+  tags: cis
+
+- name: CIS - enforce strong password complexity
+  copy:
+    dest: /etc/security/pwquality.conf
+    content: |
+      minlen = 14
+      dcredit = -1
+      ucredit = -1
+      ocredit = -1
+      lcredit = -1
+      retry = 3
+      enforce_for_root
+    mode: "0644"
+  tags: cis
+
+- name: CIS - enable kernel address randomization
+  sysctl:
+    name: kernel.randomize_va_space
+    value: "2"
+    state: present
+  tags: cis
+
+- name: CIS - disable IPv4 forwarding
+  sysctl:
+    name: net.ipv4.ip_forward
+    value: "0"
+    state: present
+  tags: cis
+
+- name: CIS - install auditd
+  package:
+    name: auditd
+    state: present
+  tags: cis
+
+- name: CIS - enable auditd
+  service:
+    name: auditd
+    enabled: true
+    state: started
+  tags: cis

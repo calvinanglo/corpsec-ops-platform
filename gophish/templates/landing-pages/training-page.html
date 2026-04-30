@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Phishing Awareness Training</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 720px; margin: 30px auto; padding: 30px; color: #333; line-height: 1.6; }
+    h1 { color: #c00; }
+    .red-flag { background: #fff3cd; border-left: 4px solid #ffc107; padding: 12px; margin: 12px 0; }
+    .quiz { background: #e7f3ff; padding: 16px; margin: 16px 0; border-radius: 6px; }
+    .quiz label { display: block; margin: 8px 0; }
+    button { background: #007dc1; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <h1>You just clicked a simulated phishing email</h1>
+  <p>This was a <strong>safe simulation</strong> from the corpsec-ops phishing program. No real harm was done — but in a real attack, you might have given an attacker access to your account.</p>
+
+  <h2>Red flags in the email you received</h2>
+  <div class="red-flag">
+    <strong>Sender domain mismatch:</strong> The "Okta" email came from a domain that doesn't match the real Okta domain (corpsec-ops.okta.com vs. attacker-domain.tld).
+  </div>
+  <div class="red-flag">
+    <strong>Urgency language:</strong> "Your password expires in 24 hours" creates artificial time pressure to bypass critical thinking.
+  </div>
+  <div class="red-flag">
+    <strong>Generic greeting:</strong> Real Okta password reset emails address you by your registered name, not "{{.FirstName}}".
+  </div>
+  <div class="red-flag">
+    <strong>Suspicious URL:</strong> Hover over the "Renew Password" link before clicking — the destination domain should be your Okta org URL.
+  </div>
+
+  <h2>What to do next time</h2>
+  <ol>
+    <li>Hover over links to inspect the URL before clicking</li>
+    <li>Sign in to Okta directly via your bookmark, never via an email link</li>
+    <li>Report suspicious emails using the Phish Alert button in Gmail/Outlook</li>
+    <li>If you submitted credentials, immediately reset them and tell IT</li>
+  </ol>
+
+  <div class="quiz">
+    <h3>Quick quiz (3 questions)</h3>
+    <form method="POST" action="">
+      <p><strong>1. What was suspicious about the sender?</strong></p>
+      <label><input type="radio" name="q1" value="a"> The font was strange</label>
+      <label><input type="radio" name="q1" value="b" required> The domain didn't match the real Okta org</label>
+      <label><input type="radio" name="q1" value="c"> It was sent on a weekend</label>
+
+      <p><strong>2. What should you do when you get an urgent password-reset email?</strong></p>
+      <label><input type="radio" name="q2" value="a"> Click the link immediately</label>
+      <label><input type="radio" name="q2" value="b" required> Sign in to Okta directly via bookmark, then check messages</label>
+      <label><input type="radio" name="q2" value="c"> Forward it to coworkers for advice</label>
+
+      <p><strong>3. How do you report suspicious email?</strong></p>
+      <label><input type="radio" name="q3" value="a"> Delete it silently</label>
+      <label><input type="radio" name="q3" value="b" required> Use the Phish Alert button or forward to security@corpsec.local</label>
+      <label><input type="radio" name="q3" value="c"> Reply asking the sender to confirm</label>
+
+      <p style="margin-top: 20px;"><button type="submit">Submit and finish training</button></p>
+    </form>
+  </div>
+
+  <p><em>Training completion is logged. Repeat offenders may be referred to manager-led one-on-one training.</em></p>
+</body>
+</html>

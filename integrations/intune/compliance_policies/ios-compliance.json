@@ -1,0 +1,18 @@
+{
+  "@odata.type": "#microsoft.graph.iosCompliancePolicy",
+  "displayName": "corpsec-ios-baseline",
+  "description": "Baseline compliance policy for iOS/iPadOS endpoints",
+  "passcodeBlockSimple": true,
+  "passcodeRequired": true,
+  "passcodeMinimumLength": 6,
+  "passcodeRequiredType": "alphanumeric",
+  "passcodeMinutesOfInactivityBeforeLock": 5,
+  "passcodeExpirationDays": 90,
+  "passcodePreviousPasscodeBlockCount": 6,
+  "securityBlockJailbrokenDevices": true,
+  "deviceThreatProtectionEnabled": true,
+  "deviceThreatProtectionRequiredSecurityLevel": "medium",
+  "managedEmailProfileRequired": true,
+  "osMinimumVersion": "16.0",
+  "restrictedApps": []
+}

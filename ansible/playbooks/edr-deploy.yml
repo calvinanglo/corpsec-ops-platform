@@ -1,0 +1,75 @@
+---
+# ══════════════════════════════════════════════════════════════════════════════
+# corpsec-ops-platform — EDR mass deployment
+# Installs Wazuh agent across all endpoint groups; verifies registration
+# ══════════════════════════════════════════════════════════════════════════════
+
+- name: Deploy Wazuh agent to all endpoints
+  hosts: linux_endpoints:windows_endpoints
+  gather_facts: true
+
+  vars:
+    wazuh_manager: "{{ wazuh_manager_address }}"
+
+  pre_tasks:
+    - name: Verify Wazuh manager is reachable
+      wait_for:
+        host: "{{ wazuh_manager }}"
+        port: 1514
+        timeout: 10
+      delegate_to: localhost
+      run_once: true
+      become: false
+
+  tasks:
+    - name: Apply wazuh-agent role
+      include_role:
+        name: wazuh-agent
+
+  post_tasks:
+    - name: Verify agent appears in manager registry
+      uri:
+        url: "https://{{ wazuh_manager }}:55000/agents?name={{ inventory_hostname }}"
+        method: GET
+        user: "{{ lookup('env', 'WAZUH_API_USER') }}"
+        password: "{{ lookup('env', 'WAZUH_API_PASSWORD') }}"
+        force_basic_auth: true
+        validate_certs: false
+        return_content: true
+      register: agent_check
+      delegate_to: localhost
+      become: false
+      retries: 6
+      delay: 10
+      until: agent_check.json.data.affected_items | length > 0
+
+    - name: Report registration status
+      debug:
+        msg: "Agent {{ inventory_hostname }} registered successfully (id={{ agent_check.json.data.affected_items[0].id }})"
+
+
+- name: Generate deployment summary
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Pull active agent count
+      uri:
+        url: "https://{{ groups['linux_endpoints'] | first | extract(hostvars, ['wazuh_manager_address']) }}:55000/agents?status=active&limit=1000"
+        method: GET
+        user: "{{ lookup('env', 'WAZUH_API_USER') }}"
+        password: "{{ lookup('env', 'WAZUH_API_PASSWORD') }}"
+        force_basic_auth: true
+        validate_certs: false
+      register: active_agents
+      ignore_errors: true
+
+    - name: Print summary
+      debug:
+        msg: |
+          ─────────────────────────────────────────────────────
+            EDR Deployment Summary
+          ─────────────────────────────────────────────────────
+            Linux endpoints targeted:   {{ groups['linux_endpoints'] | length }}
+            Windows endpoints targeted: {{ groups['windows_endpoints'] | length }}
+            Active in manager:          {{ active_agents.json.data.total_affected_items | default('unknown') }}
+          ─────────────────────────────────────────────────────

@@ -1,0 +1,43 @@
+# ══════════════════════════════════════════════════════════════════════════════
+# corpsec-ops-platform — Python dependencies
+# ══════════════════════════════════════════════════════════════════════════════
+
+# HTTP / API
+requests==2.32.3
+urllib3==2.2.3
+flask==3.1.0
+gunicorn==23.0.0
+
+# Configuration
+pyyaml==6.0.2
+python-dotenv==1.0.1
+
+# Real production tool SDKs
+okta==2.9.7
+crowdstrike-falconpy==1.4.7
+google-api-python-client==2.151.0
+google-auth==2.36.0
+google-auth-oauthlib==1.2.1
+msgraph-sdk==1.13.0
+msal==1.31.1
+
+# Logging
+structlog==24.4.0
+
+# Data validation
+pydantic==2.10.3
+
+# Cryptography (for evidence hashing)
+cryptography==44.0.0
+
+# CLI
+click==8.1.7
+
+# Testing
+pytest==8.3.4
+pytest-cov==6.0.0
+pytest-mock==3.14.0
+responses==0.25.3
+
+# Linting
+ruff==0.8.4

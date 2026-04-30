@@ -1,0 +1,53 @@
+---
+# ══════════════════════════════════════════════════════════════════════════════
+# corpsec-ops-platform — Forensic artifact collection
+# Runs post-incident-containment for thorough evidence preservation
+# Usage: ansible-playbook evidence-collect.yml -e "target_host=endpoint-linux-01"
+# ══════════════════════════════════════════════════════════════════════════════
+
+- name: Collect forensic artifacts
+  hosts: "{{ target_host | default('none') }}"
+  become: true
+  gather_facts: true
+
+  vars:
+    evidence_dir_local: "../forensic-evidence/{{ inventory_hostname }}-{{ ansible_date_time.epoch }}"
+
+  tasks:
+    - name: Apply forensic-collect role
+      include_role:
+        name: forensic-collect
+
+    - name: Pull all artifacts to control node
+      synchronize:
+        mode: pull
+        src: "/tmp/corpsec-evidence/"
+        dest: "{{ evidence_dir_local }}/"
+      become: false
+
+    - name: Compute SHA-256 of pulled artifacts
+      shell: "find {{ evidence_dir_local }} -type f -exec sha256sum {} \\; > {{ evidence_dir_local }}/MANIFEST.sha256"
+      delegate_to: localhost
+      become: false
+      changed_when: true
+
+    - name: Audit log entry
+      lineinfile:
+        path: /var/log/corpsec-incidents.log
+        line: "{{ ansible_date_time.iso8601 }} EVIDENCE collected from {{ inventory_hostname }} → {{ evidence_dir_local }}"
+        create: true
+        mode: "0600"
+      delegate_to: localhost
+      become: false
+
+    - name: Print summary
+      debug:
+        msg: |
+          ─────────────────────────────────────────────────────
+            Evidence collection complete
+          ─────────────────────────────────────────────────────
+            Host:           {{ inventory_hostname }}
+            Local dest:     {{ evidence_dir_local }}/
+            Manifest:       {{ evidence_dir_local }}/MANIFEST.sha256
+            Next steps:     review artifacts, attach to TheHive case
+          ─────────────────────────────────────────────────────

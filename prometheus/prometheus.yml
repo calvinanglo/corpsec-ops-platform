@@ -1,0 +1,41 @@
+# ══════════════════════════════════════════════════════════════════════════════
+# corpsec-ops-platform — Prometheus configuration
+# ══════════════════════════════════════════════════════════════════════════════
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: corpsec-ops
+    environment: production-portfolio
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ["alertmanager:9093"]
+
+rule_files:
+  - /etc/prometheus/alert-rules/*.yml
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  - job_name: corpsec-python
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["corpsec-python:8080"]
+
+  - job_name: grafana
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["grafana:3000"]
+
+  - job_name: loki
+    static_configs:
+      - targets: ["loki:3100"]
+
+  - job_name: cortex
+    metrics_path: /api/status
+    static_configs:
+      - targets: ["cortex:9001"]

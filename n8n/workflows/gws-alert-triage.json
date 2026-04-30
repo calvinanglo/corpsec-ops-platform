@@ -1,0 +1,96 @@
+{
+  "name": "Google Workspace Alert → Triage (Admin/Drive/Mail-specific routing)",
+  "nodes": [
+    {
+      "parameters": {"httpMethod": "POST", "path": "gws-alert", "responseMode": "responseNode"},
+      "name": "GWS Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300],
+      "id": "gws-webhook"
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {"name": "actor", "value": "={{ $json.actor.email }}"},
+            {"name": "event_name", "value": "={{ $json.events[0].name }}"},
+            {"name": "application", "value": "={{ $json.application }}"}
+          ]
+        }
+      },
+      "name": "Extract Fields",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [460, 300],
+      "id": "extract"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {"conditions": {"string": [{"value1": "={{ $json.event_name }}", "operation": "equal", "value2": "email_forwarding_out_of_domain"}]}, "renameOutput": true, "outputKey": "bec_indicator"},
+            {"conditions": {"string": [{"value1": "={{ $json.event_name }}", "operation": "contains", "value2": "change_user_access"}]}, "renameOutput": true, "outputKey": "drive_sharing"},
+            {"conditions": {"string": [{"value1": "={{ $json.event_name }}", "operation": "equal", "value2": "RULE_TRIGGERED"}]}, "renameOutput": true, "outputKey": "dlp_event"}
+          ]
+        },
+        "fallbackOutput": "extra"
+      },
+      "name": "Route by Event",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 2,
+      "position": [680, 300],
+      "id": "router"
+    },
+    {
+      "parameters": {
+        "url": "http://corpsec-python:8080/remediate/disable-user",
+        "method": "POST",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"user_email\": \"{{ $('Extract Fields').item.json.actor }}\",\n  \"alert_id\": \"gws-bec-{{ Date.now() }}\"\n}"
+      },
+      "name": "Disable User (BEC indicator)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [900, 200],
+      "id": "disable-user"
+    },
+    {
+      "parameters": {
+        "url": "=http://thehive:9000/api/v1/case",
+        "method": "POST",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {"parameters": [{"name": "Authorization", "value": "Bearer ={{ $env.THEHIVE_API_KEY }}"}, {"name": "Content-Type", "value": "application/json"}]},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"title\": \"[GWS-{{ $('Extract Fields').item.json.application }}] {{ $('Extract Fields').item.json.event_name }} by {{ $('Extract Fields').item.json.actor }}\",\n  \"description\": \"Google Workspace event triage required.\\n\\n- Actor: {{ $('Extract Fields').item.json.actor }}\\n- Application: {{ $('Extract Fields').item.json.application }}\\n- Event: {{ $('Extract Fields').item.json.event_name }}\\n\\nSee runbook IR-008-gws-alert-triage.md\",\n  \"severity\": 3,\n  \"tags\": [\"gws\", \"{{ $('Extract Fields').item.json.application }}\", \"{{ $('Extract Fields').item.json.event_name }}\"]\n}"
+      },
+      "name": "Create Case",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [900, 400],
+      "id": "create-case"
+    },
+    {
+      "parameters": {"respondWith": "json", "responseBody": "={\"status\": \"processed\"}"},
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1120, 300],
+      "id": "respond"
+    }
+  ],
+  "connections": {
+    "GWS Webhook": {"main": [[{"node": "Extract Fields", "type": "main", "index": 0}]]},
+    "Extract Fields": {"main": [[{"node": "Route by Event", "type": "main", "index": 0}]]},
+    "Route by Event": {"main": [[{"node": "Disable User (BEC indicator)", "type": "main", "index": 0}], [{"node": "Create Case", "type": "main", "index": 0}], [{"node": "Create Case", "type": "main", "index": 0}], [{"node": "Create Case", "type": "main", "index": 0}]]},
+    "Disable User (BEC indicator)": {"main": [[{"node": "Create Case", "type": "main", "index": 0}]]},
+    "Create Case": {"main": [[{"node": "Respond", "type": "main", "index": 0}]]}
+  },
+  "active": false,
+  "settings": {"executionOrder": "v1"},
+  "tags": [{"name": "corpsec"}, {"name": "google_workspace"}]
+}

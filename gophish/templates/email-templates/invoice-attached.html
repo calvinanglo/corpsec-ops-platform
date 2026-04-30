@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><title>Invoice for Q4 Review</title></head>
+<body style="font-family: Calibri, Arial, sans-serif; color: #222;">
+  <p>Hi {{.FirstName}},</p>
+  <p>Please find the Q4 financial summary attached. CFO has requested all department heads review and respond with sign-off before EOD Friday.</p>
+  <p>The macro-enabled spreadsheet contains pivot tables; click "Enable Content" when prompted.</p>
+  <p>Let me know if you have any questions.</p>
+  <p>Thanks,<br>
+  Finance Team<br>
+  <em>finance@corpsec.local</em></p>
+  <p>Attachment: <a href="{{.URL}}">Q4_Financial_Summary.docm</a></p>
+  {{.Tracker}}
+</body>
+</html>

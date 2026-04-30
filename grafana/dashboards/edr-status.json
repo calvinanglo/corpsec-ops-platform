@@ -1,0 +1,29 @@
+{
+  "annotations": {"list": []}, "editable": true, "id": null, "links": [],
+  "panels": [
+    {
+      "datasource": {"type": "elasticsearch", "uid": "wazuh-indexer"},
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 0}, "id": 1,
+      "title": "CrowdStrike + Wazuh Agent Status Matrix",
+      "type": "table",
+      "targets": [{"query": "agent.id:*", "metrics": [{"type": "raw_data", "id": "1", "settings": {"size": "200"}}], "refId": "A"}]
+    },
+    {
+      "datasource": {"type": "elasticsearch", "uid": "wazuh-indexer"},
+      "gridPos": {"h": 10, "w": 12, "x": 0, "y": 8}, "id": 2,
+      "title": "Detections by Tactic (MITRE ATT&CK)",
+      "type": "barchart",
+      "targets": [{"query": "rule.groups:crowdstrike", "metrics": [{"type": "count", "id": "1"}], "bucketAggs": [{"type": "terms", "field": "data.detection.tactic", "id": "2"}], "refId": "A"}]
+    },
+    {
+      "datasource": {"type": "elasticsearch", "uid": "wazuh-indexer"},
+      "gridPos": {"h": 10, "w": 12, "x": 12, "y": 8}, "id": 3,
+      "title": "Top 10 Compromised Hosts (CVE count)",
+      "type": "table",
+      "targets": [{"query": "rule.groups:vulnerability-detector AND data.severity:(High OR Critical)", "metrics": [{"type": "count", "id": "1"}], "bucketAggs": [{"type": "terms", "field": "agent.name", "id": "2", "settings": {"size": "10"}}], "refId": "A"}]
+    }
+  ],
+  "refresh": "30s", "schemaVersion": 39, "tags": ["soc", "edr"],
+  "time": {"from": "now-7d", "to": "now"},
+  "title": "EDR Status (CrowdStrike + Wazuh)", "uid": "edr-status", "version": 1
+}

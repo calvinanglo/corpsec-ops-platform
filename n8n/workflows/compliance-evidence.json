@@ -1,0 +1,48 @@
+{
+  "name": "Compliance Evidence — Daily Collection",
+  "nodes": [
+    {
+      "parameters": {"rule": {"interval": [{"field": "hours", "hoursInterval": 24}]}},
+      "name": "Daily 02:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [240, 300],
+      "id": "schedule"
+    },
+    {
+      "parameters": {
+        "url": "http://corpsec-python:8080/compliance/collect",
+        "method": "POST",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"framework\": \"all\"}"
+      },
+      "name": "Collect SOC 2 + ISO 27001 Evidence",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [460, 300],
+      "id": "collect-evidence"
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {"name": "summary", "value": "={{ $json.packages.length }} evidence packages collected for {{ $json.framework }}"}
+          ]
+        }
+      },
+      "name": "Build Summary",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [680, 300],
+      "id": "summary"
+    }
+  ],
+  "connections": {
+    "Daily 02:00": {"main": [[{"node": "Collect SOC 2 + ISO 27001 Evidence", "type": "main", "index": 0}]]},
+    "Collect SOC 2 + ISO 27001 Evidence": {"main": [[{"node": "Build Summary", "type": "main", "index": 0}]]}
+  },
+  "active": false,
+  "settings": {"executionOrder": "v1"},
+  "tags": [{"name": "corpsec"}, {"name": "compliance"}]
+}

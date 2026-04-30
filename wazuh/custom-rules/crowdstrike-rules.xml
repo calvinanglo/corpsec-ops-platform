@@ -1,0 +1,177 @@
+<!-- ════════════════════════════════════════════════════════════════════════════
+     corpsec-ops-platform — CrowdStrike Falcon EDR detection rules
+     Source: CrowdStrike Detections API (streamed by integrations/crowdstrike/detection_streamer.py)
+     ════════════════════════════════════════════════════════════════════════════ -->
+<group name="crowdstrike,edr,corpsec,">
+
+  <rule id="100300" level="3">
+    <decoded_as>json</decoded_as>
+    <field name="source">crowdstrike</field>
+    <description>CrowdStrike: $(detection.tactic) - $(detection.technique)</description>
+    <options>no_full_log</options>
+  </rule>
+
+  <!-- ── Severity-based mapping (CrowdStrike severity 1-100 -> Wazuh level) ── -->
+  <rule id="100301" level="7">
+    <if_sid>100300</if_sid>
+    <field name="severity_int">^[2-3][0-9]$</field>
+    <description>CrowdStrike LOW: $(detection.description) on $(device.hostname)</description>
+  </rule>
+
+  <rule id="100302" level="9">
+    <if_sid>100300</if_sid>
+    <field name="severity_int">^[4-5][0-9]$</field>
+    <description>CrowdStrike MEDIUM: $(detection.description) on $(device.hostname)</description>
+  </rule>
+
+  <rule id="100303" level="11">
+    <if_sid>100300</if_sid>
+    <field name="severity_int">^[6-7][0-9]$</field>
+    <description>CrowdStrike HIGH: $(detection.description) on $(device.hostname)</description>
+  </rule>
+
+  <rule id="100304" level="13">
+    <if_sid>100300</if_sid>
+    <field name="severity_int">^([8-9][0-9]|100)$</field>
+    <description>CrowdStrike CRITICAL: $(detection.description) on $(device.hostname)</description>
+  </rule>
+
+  <!-- ── Tactic-specific detections (MITRE ATT&CK) ──────────────────────────── -->
+  <rule id="100310" level="11">
+    <if_sid>100300</if_sid>
+    <field name="detection.tactic">Initial Access</field>
+    <description>CrowdStrike: Initial Access detected on $(device.hostname) - $(detection.technique)</description>
+    <mitre>
+      <id>TA0001</id>
+    </mitre>
+  </rule>
+
+  <rule id="100311" level="11">
+    <if_sid>100300</if_sid>
+    <field name="detection.tactic">Execution</field>
+    <description>CrowdStrike: Suspicious execution on $(device.hostname) - $(detection.technique)</description>
+    <mitre>
+      <id>TA0002</id>
+    </mitre>
+  </rule>
+
+  <rule id="100312" level="12">
+    <if_sid>100300</if_sid>
+    <field name="detection.tactic">Persistence</field>
+    <description>CrowdStrike: Persistence mechanism on $(device.hostname) - $(detection.technique)</description>
+    <mitre>
+      <id>TA0003</id>
+    </mitre>
+  </rule>
+
+  <rule id="100313" level="12">
+    <if_sid>100300</if_sid>
+    <field name="detection.tactic">Privilege Escalation</field>
+    <description>CrowdStrike: Privilege escalation on $(device.hostname) - $(detection.technique)</description>
+    <mitre>
+      <id>TA0004</id>
+    </mitre>
+  </rule>
+
+  <rule id="100314" level="11">
+    <if_sid>100300</if_sid>
+    <field name="detection.tactic">Defense Evasion</field>
+    <description>CrowdStrike: Defense evasion on $(device.hostname) - $(detection.technique)</description>
+    <mitre>
+      <id>TA0005</id>
+    </mitre>
+  </rule>
+
+  <rule id="100315" level="13">
+    <if_sid>100300</if_sid>
+    <field name="detection.tactic">Credential Access</field>
+    <description>CrowdStrike: Credential access on $(device.hostname) - $(detection.technique)</description>
+    <mitre>
+      <id>TA0006</id>
+    </mitre>
+  </rule>
+
+  <rule id="100316" level="11">
+    <if_sid>100300</if_sid>
+    <field name="detection.tactic">Discovery</field>
+    <description>CrowdStrike: Discovery activity on $(device.hostname) - $(detection.technique)</description>
+    <mitre>
+      <id>TA0007</id>
+    </mitre>
+  </rule>
+
+  <rule id="100317" level="13">
+    <if_sid>100300</if_sid>
+    <field name="detection.tactic">Lateral Movement</field>
+    <description>CrowdStrike: Lateral movement from $(device.hostname) - $(detection.technique)</description>
+    <mitre>
+      <id>TA0008</id>
+    </mitre>
+  </rule>
+
+  <rule id="100318" level="13">
+    <if_sid>100300</if_sid>
+    <field name="detection.tactic">Exfiltration</field>
+    <description>CrowdStrike: Exfiltration from $(device.hostname) - $(detection.technique)</description>
+    <mitre>
+      <id>TA0010</id>
+    </mitre>
+  </rule>
+
+  <rule id="100319" level="14">
+    <if_sid>100300</if_sid>
+    <field name="detection.tactic">Impact</field>
+    <description>CrowdStrike: Impact event on $(device.hostname) - $(detection.technique) - PRIORITY RESPONSE</description>
+    <mitre>
+      <id>TA0040</id>
+    </mitre>
+  </rule>
+
+  <!-- ── Specific high-fidelity detections ──────────────────────────────────── -->
+  <rule id="100320" level="14">
+    <if_sid>100300</if_sid>
+    <field name="detection.technique">Ransomware</field>
+    <description>CrowdStrike: RANSOMWARE detected on $(device.hostname) - $(detection.filename)</description>
+    <mitre>
+      <id>T1486</id>
+    </mitre>
+    <group>ransomware,</group>
+  </rule>
+
+  <rule id="100321" level="13">
+    <if_sid>100300</if_sid>
+    <field name="detection.technique">Mimikatz</field>
+    <description>CrowdStrike: Mimikatz/credential dumping on $(device.hostname)</description>
+    <mitre>
+      <id>T1003</id>
+    </mitre>
+  </rule>
+
+  <rule id="100322" level="12">
+    <if_sid>100300</if_sid>
+    <field name="detection.behavior">Suspicious PowerShell</field>
+    <description>CrowdStrike: Suspicious PowerShell on $(device.hostname) - encoded/obfuscated command</description>
+    <mitre>
+      <id>T1059.001</id>
+    </mitre>
+  </rule>
+
+  <!-- ── Sensor health ──────────────────────────────────────────────────────── -->
+  <rule id="100330" level="8">
+    <if_sid>100300</if_sid>
+    <field name="event_type">SensorHeartbeat</field>
+    <field name="status">offline</field>
+    <description>CrowdStrike: Sensor offline on $(device.hostname) for &gt;15 minutes</description>
+  </rule>
+
+  <rule id="100331" level="10">
+    <if_sid>100300</if_sid>
+    <field name="event_type">SensorUpdate</field>
+    <field name="status">disabled</field>
+    <description>CrowdStrike: Sensor DISABLED on $(device.hostname) - possible tampering</description>
+    <mitre>
+      <id>T1562.001</id>
+    </mitre>
+  </rule>
+
+</group>

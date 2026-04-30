@@ -1,0 +1,43 @@
+{
+  "annotations": {"list": []}, "editable": true, "id": null, "links": [],
+  "panels": [
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"h": 6, "w": 8, "x": 0, "y": 0}, "id": 1,
+      "title": "SOC 2 Control Pass Rate", "type": "gauge",
+      "fieldConfig": {"defaults": {"unit": "percent", "thresholds": {"mode": "absolute", "steps": [{"color": "red"}, {"color": "yellow", "value": 80}, {"color": "green", "value": 95}]}}},
+      "targets": [{"expr": "corpsec_compliance_soc2_pass_rate", "refId": "A"}]
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"h": 6, "w": 8, "x": 8, "y": 0}, "id": 2,
+      "title": "ISO 27001 Control Pass Rate", "type": "gauge",
+      "fieldConfig": {"defaults": {"unit": "percent", "thresholds": {"mode": "absolute", "steps": [{"color": "red"}, {"color": "yellow", "value": 80}, {"color": "green", "value": 95}]}}},
+      "targets": [{"expr": "corpsec_compliance_iso27001_pass_rate", "refId": "A"}]
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"h": 6, "w": 8, "x": 16, "y": 0}, "id": 3,
+      "title": "Audit Readiness Score", "type": "gauge",
+      "targets": [{"expr": "corpsec_compliance_audit_readiness_percent", "refId": "A"}]
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"h": 12, "w": 12, "x": 0, "y": 6}, "id": 4,
+      "title": "SOC 2 Trust Services Criteria — Status",
+      "type": "stat",
+      "options": {"colorMode": "background", "graphMode": "none"},
+      "targets": [{"expr": "corpsec_compliance_control_status by (control_id)", "legendFormat": "{{ control_id }}", "refId": "A"}]
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"h": 12, "w": 12, "x": 12, "y": 6}, "id": 5,
+      "title": "Evidence Freshness (days since last collection)",
+      "type": "table",
+      "targets": [{"expr": "corpsec_compliance_evidence_age_days by (control_id, framework)", "refId": "A"}]
+    }
+  ],
+  "refresh": "1h", "schemaVersion": 39, "tags": ["soc", "compliance"],
+  "time": {"from": "now-30d", "to": "now"},
+  "title": "Compliance Posture (SOC 2 + ISO 27001)", "uid": "compliance-posture", "version": 1
+}

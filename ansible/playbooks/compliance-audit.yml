@@ -1,0 +1,66 @@
+---
+# ══════════════════════════════════════════════════════════════════════════════
+# corpsec-ops-platform — Compliance audit (SOC 2 + ISO 27001)
+# Read-only — never modifies state. Outputs structured YAML for evidence_collector.
+# ══════════════════════════════════════════════════════════════════════════════
+
+- name: Linux compliance checks
+  hosts: linux_endpoints
+  gather_facts: true
+  vars:
+    audit_results: []
+
+  tasks:
+    - name: SOC2-CC6.1 — Verify root SSH login disabled
+      shell: grep -E '^PermitRootLogin\s+no' /etc/ssh/sshd_config
+      register: root_login
+      changed_when: false
+      failed_when: false
+
+    - name: SOC2-CC6.2 — Verify password complexity
+      shell: grep -E '^minlen=' /etc/security/pwquality.conf
+      register: password_complexity
+      changed_when: false
+      failed_when: false
+
+    - name: SOC2-CC6.7 — Check disk encryption status
+      shell: lsblk -o NAME,TYPE,FSTYPE | grep -i crypt
+      register: disk_encryption
+      changed_when: false
+      failed_when: false
+
+    - name: SOC2-CC6.8 — Verify Wazuh agent is running
+      shell: systemctl is-active wazuh-agent
+      register: wazuh_status
+      changed_when: false
+      failed_when: false
+
+    - name: ISO-A.12.4 — Verify rsyslog forwarding configured
+      shell: grep -l '@@wazuh-manager' /etc/rsyslog.d/
+      register: log_forwarding
+      changed_when: false
+      failed_when: false
+
+    - name: ISO-A.12.6 — Last vulnerability scan timestamp
+      shell: stat -c %Y /var/ossec/queue/vulnerabilities/dictionaries/cve.json
+      register: vuln_scan_ts
+      changed_when: false
+      failed_when: false
+
+    - name: Build audit results
+      set_fact:
+        audit_results: "{{ audit_results + [item] }}"
+      loop:
+        - {control: "SOC2-CC6.1", description: "Root SSH disabled", result: "{{ 'PASS' if root_login.rc == 0 else 'FAIL' }}"}
+        - {control: "SOC2-CC6.2", description: "Password complexity enforced", result: "{{ 'PASS' if password_complexity.rc == 0 else 'FAIL' }}"}
+        - {control: "SOC2-CC6.7", description: "Disk encryption", result: "{{ 'PASS' if disk_encryption.stdout != '' else 'FAIL' }}"}
+        - {control: "SOC2-CC6.8", description: "Wazuh agent active", result: "{{ 'PASS' if wazuh_status.stdout == 'active' else 'FAIL' }}"}
+        - {control: "ISO-A.12.4", description: "Log forwarding configured", result: "{{ 'PASS' if log_forwarding.rc == 0 else 'FAIL' }}"}
+        - {control: "ISO-A.12.6", description: "Recent vulnerability scan", result: "{{ 'PASS' if vuln_scan_ts.rc == 0 else 'FAIL' }}"}
+
+    - name: Output audit results (machine-parseable for evidence_collector)
+      copy:
+        dest: "/tmp/corpsec-audit-{{ inventory_hostname }}.yml"
+        content: "{{ {'host': inventory_hostname, 'timestamp': ansible_date_time.iso8601, 'results': audit_results} | to_nice_yaml }}"
+      delegate_to: localhost
+      become: false

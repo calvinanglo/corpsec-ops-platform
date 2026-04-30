@@ -1,0 +1,15 @@
+<!-- ════════════════════════════════════════════════════════════════════════════
+     corpsec-ops-platform — DLP JSON decoder
+     Decodes events from python/dlp/reporter.py output
+     ════════════════════════════════════════════════════════════════════════════ -->
+<decoder name="corpsec-dlp-json">
+  <prematch>{"source":"corpsec-dlp"</prematch>
+  <plugin_decoder>JSON_Decoder</plugin_decoder>
+</decoder>
+
+<decoder name="corpsec-dlp-fields">
+  <parent>corpsec-dlp-json</parent>
+  <use_own_name>true</use_own_name>
+  <regex>"policy_id"\s*:\s*"([^"]+)"</regex>
+  <order>policy_id</order>
+</decoder>

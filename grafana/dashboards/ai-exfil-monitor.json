@@ -1,0 +1,36 @@
+{
+  "annotations": {"list": []}, "editable": true, "id": null, "links": [],
+  "panels": [
+    {
+      "datasource": {"type": "elasticsearch", "uid": "wazuh-indexer"},
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 0}, "id": 1,
+      "title": "DNS Queries to AI Services Over Time",
+      "type": "timeseries",
+      "targets": [{"query": "rule.groups:ai_exfil AND data.detection_type:dns_query", "metrics": [{"type": "count", "id": "1"}], "bucketAggs": [{"type": "terms", "field": "data.ai_service", "id": "2"}, {"type": "date_histogram", "field": "@timestamp", "id": "3"}], "refId": "A"}]
+    },
+    {
+      "datasource": {"type": "elasticsearch", "uid": "wazuh-indexer"},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8}, "id": 2,
+      "title": "Upload Volume by User (bytes)",
+      "type": "barchart",
+      "targets": [{"query": "rule.groups:ai_exfil AND data.detection_type:proxy_upload", "metrics": [{"type": "sum", "field": "data.upload_bytes", "id": "1"}], "bucketAggs": [{"type": "terms", "field": "data.user", "id": "2", "settings": {"size": "10"}}], "refId": "A"}]
+    },
+    {
+      "datasource": {"type": "elasticsearch", "uid": "wazuh-indexer"},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8}, "id": 3,
+      "title": "Authorized vs Unauthorized AI Usage Ratio",
+      "type": "piechart",
+      "targets": [{"query": "rule.groups:ai_exfil", "metrics": [{"type": "count", "id": "1"}], "bucketAggs": [{"type": "terms", "field": "data.ai_service_classification", "id": "2"}], "refId": "A"}]
+    },
+    {
+      "datasource": {"type": "elasticsearch", "uid": "wazuh-indexer"},
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 16}, "id": 4,
+      "title": "Time-of-Day Heatmap (after-hours = higher risk)",
+      "type": "heatmap",
+      "targets": [{"query": "rule.groups:ai_exfil", "metrics": [{"type": "count", "id": "1"}], "bucketAggs": [{"type": "date_histogram", "field": "@timestamp", "id": "2", "settings": {"interval": "1h"}}], "refId": "A"}]
+    }
+  ],
+  "refresh": "1m", "schemaVersion": 39, "tags": ["soc", "ai-exfil"],
+  "time": {"from": "now-7d", "to": "now"},
+  "title": "AI Exfiltration Monitor", "uid": "ai-exfil-monitor", "version": 1
+}

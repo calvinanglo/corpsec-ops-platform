@@ -1,0 +1,18 @@
+{
+  "name": "CEO Fraud / BEC — Wire Transfer Request",
+  "template": {
+    "name": "IT Helpdesk Notice",
+    "subject": "Need wire transfer processed urgently — details to follow",
+    "html_file": "../email-templates/it-helpdesk-notice.html"
+  },
+  "page": {
+    "name": "Training Redirect",
+    "html_file": "../landing-pages/training-page.html",
+    "capture_credentials": false
+  },
+  "smtp": {
+    "name": "MailHog",
+    "host": "mailhog:1025",
+    "from_address": "ceo@corpsec-exec.com"
+  }
+}

@@ -1,0 +1,37 @@
+<ossec_config>
+  <client>
+    <server>
+      <address>{{ wazuh_manager }}</address>
+      <port>1514</port>
+      <protocol>tcp</protocol>
+    </server>
+    <config-profile>{{ os_family | default('linux') }}</config-profile>
+    <notify_time>10</notify_time>
+    <time-reconnect>60</time-reconnect>
+    <auto_restart>yes</auto_restart>
+  </client>
+
+  <syscheck>
+    <frequency>43200</frequency>
+    <directories check_all="yes" report_changes="yes" realtime="yes">/legal,/client-data,/finance</directories>
+    <directories check_all="yes" realtime="yes">/etc,/usr/bin,/usr/sbin</directories>
+  </syscheck>
+
+  <rootcheck>
+    <disabled>no</disabled>
+    <check_files>yes</check_files>
+    <check_trojans>yes</check_trojans>
+    <check_dev>yes</check_dev>
+  </rootcheck>
+
+  <wodle name="syscollector">
+    <disabled>no</disabled>
+    <interval>1h</interval>
+    <hardware>yes</hardware>
+    <os>yes</os>
+    <network>yes</network>
+    <packages>yes</packages>
+    <ports all="no">yes</ports>
+    <processes>yes</processes>
+  </wodle>
+</ossec_config>

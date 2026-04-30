@@ -1,0 +1,22 @@
+{
+  "@odata.type": "#microsoft.graph.macOSCompliancePolicy",
+  "displayName": "corpsec-macos-baseline",
+  "description": "Baseline compliance policy for macOS endpoints (FileVault required)",
+  "passwordRequired": true,
+  "passwordBlockSimple": true,
+  "passwordRequiredType": "alphanumeric",
+  "passwordMinimumLength": 14,
+  "passwordMinimumCharacterSetCount": 4,
+  "passwordExpirationDays": 90,
+  "passwordPreviousPasswordBlockCount": 12,
+  "passwordMinutesOfInactivityBeforeLock": 15,
+  "osMinimumVersion": "13.0",
+  "systemIntegrityProtectionEnabled": true,
+  "deviceThreatProtectionEnabled": true,
+  "deviceThreatProtectionRequiredSecurityLevel": "medium",
+  "storageRequireEncryption": true,
+  "firewallEnabled": true,
+  "firewallBlockAllIncoming": false,
+  "firewallEnableStealthMode": true,
+  "gatekeeperAllowedAppSource": "macAppStoreAndIdentifiedDevelopers"
+}

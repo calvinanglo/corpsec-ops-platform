@@ -1,0 +1,12 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><title>IT Notice</title></head>
+<body style="font-family: Arial, sans-serif;">
+  <p>Hi {{.FirstName}},</p>
+  <p>We've detected unusual sign-in activity on your account from an unrecognized device. To prevent unauthorized access, please verify your identity immediately:</p>
+  <p style="margin: 30px 0;"><a href="{{.URL}}" style="background: #d83b01; color: white; padding: 10px 20px; text-decoration: none;">Verify My Identity</a></p>
+  <p>If you do not verify within 4 hours, your account will be temporarily suspended as a precaution.</p>
+  <p>IT Help Desk<br><em>helpdesk@corpsec.local</em></p>
+  {{.Tracker}}
+</body>
+</html>

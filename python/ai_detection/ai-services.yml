@@ -1,0 +1,129 @@
+# ══════════════════════════════════════════════════════════════════════════════
+# corpsec-ops-platform — AI Service Registry
+# ══════════════════════════════════════════════════════════════════════════════
+# Loaded by python/ai_detection/policies.py via AIServiceRegistry.from_yaml()
+# Mount this into the corpsec-python container at /etc/corpsec/ai-services.yml
+# Update without code changes; security team owns this catalog.
+# ══════════════════════════════════════════════════════════════════════════════
+
+version: "1.0"
+updated_at: "2026-04-29"
+maintainer: corpsec-team
+
+services:
+  # ─── AUTHORIZED CORPORATE (placeholder — replace with your actual endpoints) ─
+  chatgpt-enterprise-corp:
+    name: "ChatGPT Enterprise (corporate)"
+    category: AUTHORIZED_CORPORATE
+    domains:
+      - chat.company.openai.com
+    description: "Corporate ChatGPT Enterprise instance with Zero Data Retention"
+
+  copilot-365-corp:
+    name: "Microsoft 365 Copilot (corporate)"
+    category: AUTHORIZED_CORPORATE
+    domains:
+      - copilot.cloud.microsoft
+    description: "M365 Copilot bundled with corporate license"
+
+  # ─── UNAUTHORIZED PERSONAL ────────────────────────────────────────────────
+  chatgpt-personal:
+    name: "ChatGPT (personal)"
+    category: UNAUTHORIZED_PERSONAL
+    domains:
+      - chat.openai.com
+      - chatgpt.com
+    api_endpoints:
+      - api.openai.com/v1/chat/completions
+      - api.openai.com/v1/completions
+    description: "Personal ChatGPT consumer endpoints"
+
+  gemini-personal:
+    name: "Gemini (personal)"
+    category: UNAUTHORIZED_PERSONAL
+    domains:
+      - gemini.google.com
+      - bard.google.com
+      - aistudio.google.com
+    api_endpoints:
+      - generativelanguage.googleapis.com
+    description: "Personal Gemini / Google AI Studio"
+
+  copilot-personal:
+    name: "Microsoft Copilot (personal)"
+    category: UNAUTHORIZED_PERSONAL
+    domains:
+      - copilot.microsoft.com
+    description: "Personal Copilot — corporate copilot.cloud.microsoft is separately authorized"
+
+  perplexity-personal:
+    name: "Perplexity AI"
+    category: UNAUTHORIZED_PERSONAL
+    domains:
+      - perplexity.ai
+      - www.perplexity.ai
+    api_endpoints:
+      - api.perplexity.ai
+    description: "Perplexity AI search/chat"
+
+  deepseek-personal:
+    name: "DeepSeek"
+    category: UNAUTHORIZED_PERSONAL
+    domains:
+      - chat.deepseek.com
+      - deepseek.com
+    api_endpoints:
+      - api.deepseek.com
+    description: "DeepSeek consumer/API"
+
+  mistral-personal:
+    name: "Mistral Le Chat"
+    category: UNAUTHORIZED_PERSONAL
+    domains:
+      - chat.mistral.ai
+    api_endpoints:
+      - api.mistral.ai
+    description: "Mistral Le Chat consumer"
+
+  you-personal:
+    name: "You.com"
+    category: UNAUTHORIZED_PERSONAL
+    domains:
+      - you.com
+      - chat.you.com
+    description: "You.com chat"
+
+  character-personal:
+    name: "Character.AI"
+    category: UNAUTHORIZED_PERSONAL
+    domains:
+      - character.ai
+      - beta.character.ai
+    description: "Character.AI"
+
+  pi-personal:
+    name: "Pi (Inflection)"
+    category: UNAUTHORIZED_PERSONAL
+    domains:
+      - pi.ai
+      - heypi.com
+    description: "Inflection Pi consumer"
+
+  groq-personal:
+    name: "Groq"
+    category: UNAUTHORIZED_PERSONAL
+    domains:
+      - chat.groq.com
+      - groq.com
+    api_endpoints:
+      - api.groq.com
+    description: "Groq inference platform"
+
+  # ─── Add new services here as security team discovers them ──────────────
+  # Format:
+  # service-key:
+  #   name: "Display Name"
+  #   category: AUTHORIZED_CORPORATE | UNAUTHORIZED_PERSONAL
+  #   domains: [domain1, domain2]
+  #   api_endpoints: [endpoint1, endpoint2]
+  #   description: "..."

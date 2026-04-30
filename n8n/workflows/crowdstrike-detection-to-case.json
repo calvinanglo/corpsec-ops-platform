@@ -1,0 +1,91 @@
+{
+  "name": "CrowdStrike Detection → TheHive (with auto-isolate for CRITICAL)",
+  "nodes": [
+    {
+      "parameters": {"httpMethod": "POST", "path": "crowdstrike-detection", "responseMode": "responseNode"},
+      "name": "CrowdStrike Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300],
+      "id": "cs-webhook"
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {"name": "device_id", "value": "={{ $json.device.device_id }}"},
+            {"name": "hostname", "value": "={{ $json.device.hostname }}"},
+            {"name": "tactic", "value": "={{ $json.detection.tactic }}"},
+            {"name": "technique", "value": "={{ $json.detection.technique }}"},
+            {"name": "severity", "value": "={{ $json.severity_label }}"}
+          ]
+        }
+      },
+      "name": "Extract Detection Fields",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [460, 300],
+      "id": "extract"
+    },
+    {
+      "parameters": {
+        "conditions": {"string": [{"value1": "={{ $json.severity }}", "operation": "equal", "value2": "Critical"}]}
+      },
+      "name": "Critical?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [680, 300],
+      "id": "critical"
+    },
+    {
+      "parameters": {
+        "url": "http://corpsec-python:8080/remediate/isolate-endpoint",
+        "method": "POST",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"device_id\": \"{{ $('Extract Detection Fields').item.json.device_id }}\",\n  \"hostname\": \"{{ $('Extract Detection Fields').item.json.hostname }}\",\n  \"alert_id\": \"cs-{{ $('CrowdStrike Webhook').item.json.detection_id }}\"\n}"
+      },
+      "name": "Isolate Endpoint (RTR)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [900, 240],
+      "id": "isolate"
+    },
+    {
+      "parameters": {
+        "url": "=http://thehive:9000/api/v1/case",
+        "method": "POST",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {"parameters": [{"name": "Authorization", "value": "Bearer ={{ $env.THEHIVE_API_KEY }}"}, {"name": "Content-Type", "value": "application/json"}]},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"title\": \"[CrowdStrike-{{ $('Extract Detection Fields').item.json.severity }}] {{ $('Extract Detection Fields').item.json.tactic }}/{{ $('Extract Detection Fields').item.json.technique }} on {{ $('Extract Detection Fields').item.json.hostname }}\",\n  \"description\": \"CrowdStrike Falcon detection.\\n\\n- Host: {{ $('Extract Detection Fields').item.json.hostname }}\\n- Device ID: {{ $('Extract Detection Fields').item.json.device_id }}\\n- MITRE Tactic: {{ $('Extract Detection Fields').item.json.tactic }}\\n- Technique: {{ $('Extract Detection Fields').item.json.technique }}\\n\\nSee runbook IR-007-crowdstrike-detection.md\",\n  \"severity\": {{ $('Extract Detection Fields').item.json.severity == 'Critical' ? 4 : ($('Extract Detection Fields').item.json.severity == 'High' ? 3 : 2) }},\n  \"tags\": [\"crowdstrike\", \"{{ $('Extract Detection Fields').item.json.tactic }}\", \"{{ $('Extract Detection Fields').item.json.severity | lower }}\"]\n}"
+      },
+      "name": "Create CrowdStrike Case",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [900, 360],
+      "id": "create-case"
+    },
+    {
+      "parameters": {"respondWith": "json", "responseBody": "={\"status\": \"processed\"}"},
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1120, 300],
+      "id": "respond"
+    }
+  ],
+  "connections": {
+    "CrowdStrike Webhook": {"main": [[{"node": "Extract Detection Fields", "type": "main", "index": 0}]]},
+    "Extract Detection Fields": {"main": [[{"node": "Critical?", "type": "main", "index": 0}]]},
+    "Critical?": {"main": [[{"node": "Isolate Endpoint (RTR)", "type": "main", "index": 0}], [{"node": "Create CrowdStrike Case", "type": "main", "index": 0}]]},
+    "Isolate Endpoint (RTR)": {"main": [[{"node": "Create CrowdStrike Case", "type": "main", "index": 0}]]},
+    "Create CrowdStrike Case": {"main": [[{"node": "Respond", "type": "main", "index": 0}]]}
+  },
+  "active": false,
+  "settings": {"executionOrder": "v1"},
+  "tags": [{"name": "corpsec"}, {"name": "crowdstrike"}, {"name": "edr"}]
+}

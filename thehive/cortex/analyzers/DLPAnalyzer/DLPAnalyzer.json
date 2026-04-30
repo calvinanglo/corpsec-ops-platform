@@ -1,0 +1,21 @@
+{
+  "name": "DLPAnalyzer",
+  "version": "1.0",
+  "author": "corpsec-ops-platform",
+  "url": "https://github.com/calvinanglo/corpsec-ops-platform",
+  "license": "MIT",
+  "description": "Run a file/text observable through the corpsec DLP engine — returns matching policies, confidence scores, recommended containment actions",
+  "dataTypeList": ["filename", "file", "other"],
+  "command": "DLPAnalyzer/dlp_analyzer.py",
+  "baseConfig": "DLPAnalyzer",
+  "configurationItems": [
+    {
+      "name": "corpsec_python_url",
+      "description": "URL of the corpsec-python API",
+      "type": "string",
+      "multi": false,
+      "required": true,
+      "defaultValue": "http://corpsec-python:8080"
+    }
+  ]
+}

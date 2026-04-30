@@ -1,0 +1,116 @@
+{
+  "name": "Wazuh Alert → TheHive Case Pipeline",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "wazuh-alert",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "name": "Wazuh Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300],
+      "id": "wazuh-webhook",
+      "webhookId": "wazuh-alert"
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {"name": "rule_id", "value": "={{ $json.rule.id }}"},
+            {"name": "rule_level", "value": "={{ $json.rule.level }}"},
+            {"name": "agent_name", "value": "={{ $json.agent.name }}"},
+            {"name": "alert_id", "value": "={{ $json.id }}"},
+            {"name": "description", "value": "={{ $json.rule.description }}"},
+            {"name": "category", "value": "={{ $json.rule.groups[0] || 'general' }}"}
+          ]
+        }
+      },
+      "name": "Parse Alert",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [460, 300],
+      "id": "parse-alert"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [
+            {"value1": "={{ parseInt($json.rule_level) }}", "operation": "largerEqual", "value2": 7}
+          ]
+        }
+      },
+      "name": "Severity Filter (level >= 7)",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [680, 300],
+      "id": "severity-filter"
+    },
+    {
+      "parameters": {
+        "url": "http://corpsec-python:8080/remediate/execute",
+        "method": "POST",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($('Wazuh Webhook').item.json) }}",
+        "options": {}
+      },
+      "name": "Trigger Remediation",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [900, 240],
+      "id": "trigger-remediation"
+    },
+    {
+      "parameters": {
+        "url": "=http://thehive:9000/api/v1/case",
+        "method": "POST",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {"name": "Authorization", "value": "Bearer ={{ $env.THEHIVE_API_KEY }}"},
+            {"name": "Content-Type", "value": "application/json"}
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"title\": \"[Wazuh-{{ $('Parse Alert').item.json.rule_id }}] {{ $('Parse Alert').item.json.description }}\",\n  \"description\": \"Auto-created from Wazuh alert.\\n\\n- Rule: {{ $('Parse Alert').item.json.rule_id }}\\n- Agent: {{ $('Parse Alert').item.json.agent_name }}\\n- Level: {{ $('Parse Alert').item.json.rule_level }}\",\n  \"severity\": {{ $('Parse Alert').item.json.rule_level >= 12 ? 4 : ($('Parse Alert').item.json.rule_level >= 10 ? 3 : 2) }},\n  \"tags\": [\"wazuh\", \"{{ $('Parse Alert').item.json.category }}\", \"rule-{{ $('Parse Alert').item.json.rule_id }}\"]\n}",
+        "options": {}
+      },
+      "name": "Create TheHive Case",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [900, 360],
+      "id": "create-case"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"status\": \"processed\",\n  \"alert_id\": \"{{ $('Parse Alert').item.json.alert_id }}\",\n  \"case_created\": {{ $('Create TheHive Case').item.json._id !== undefined }}\n}"
+      },
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1120, 300],
+      "id": "respond"
+    }
+  ],
+  "connections": {
+    "Wazuh Webhook": {"main": [[{"node": "Parse Alert", "type": "main", "index": 0}]]},
+    "Parse Alert": {"main": [[{"node": "Severity Filter (level >= 7)", "type": "main", "index": 0}]]},
+    "Severity Filter (level >= 7)": {
+      "main": [
+        [{"node": "Trigger Remediation", "type": "main", "index": 0}, {"node": "Create TheHive Case", "type": "main", "index": 0}]
+      ]
+    },
+    "Trigger Remediation": {"main": [[{"node": "Respond", "type": "main", "index": 0}]]},
+    "Create TheHive Case": {"main": [[{"node": "Respond", "type": "main", "index": 0}]]}
+  },
+  "active": false,
+  "settings": {"executionOrder": "v1"},
+  "tags": [{"name": "corpsec"}, {"name": "alert-pipeline"}]
+}

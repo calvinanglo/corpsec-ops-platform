@@ -1,0 +1,87 @@
+{
+  "name": "Okta Event → TheHive (high-fidelity Okta-specific routing)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "okta-event",
+        "responseMode": "responseNode"
+      },
+      "name": "Okta Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300],
+      "id": "okta-webhook"
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {"name": "event_type", "value": "={{ $json.eventType }}"},
+            {"name": "actor_email", "value": "={{ $json.actor.alternateId }}"},
+            {"name": "outcome", "value": "={{ $json.outcome.result }}"},
+            {"name": "client_ip", "value": "={{ $json.client.ipAddress }}"},
+            {"name": "country", "value": "={{ $json.client.geographicalContext.country }}"}
+          ]
+        }
+      },
+      "name": "Extract Okta Fields",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [460, 300],
+      "id": "extract"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {"conditions": {"string": [{"value1": "={{ $json.event_type }}", "operation": "contains", "value2": "user.session.start"}]}, "renameOutput": true, "outputKey": "session_event"},
+            {"conditions": {"string": [{"value1": "={{ $json.event_type }}", "operation": "contains", "value2": "user.mfa"}]}, "renameOutput": true, "outputKey": "mfa_event"},
+            {"conditions": {"string": [{"value1": "={{ $json.event_type }}", "operation": "contains", "value2": "policy"}]}, "renameOutput": true, "outputKey": "policy_event"}
+          ]
+        },
+        "fallbackOutput": "extra"
+      },
+      "name": "Route by Event Type",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 2,
+      "position": [680, 300],
+      "id": "router"
+    },
+    {
+      "parameters": {
+        "url": "=http://thehive:9000/api/v1/case",
+        "method": "POST",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {"parameters": [{"name": "Authorization", "value": "Bearer ={{ $env.THEHIVE_API_KEY }}"}, {"name": "Content-Type", "value": "application/json"}]},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"title\": \"[Okta-{{ $('Extract Okta Fields').item.json.event_type }}] {{ $('Extract Okta Fields').item.json.actor_email }}\",\n  \"description\": \"Okta event triage required.\\n\\n- Actor: {{ $('Extract Okta Fields').item.json.actor_email }}\\n- Event: {{ $('Extract Okta Fields').item.json.event_type }}\\n- Outcome: {{ $('Extract Okta Fields').item.json.outcome }}\\n- IP: {{ $('Extract Okta Fields').item.json.client_ip }}\\n- Country: {{ $('Extract Okta Fields').item.json.country }}\\n\\nSee runbook IR-006-okta-suspicious-signin.md\",\n  \"severity\": 3,\n  \"tags\": [\"okta\", \"{{ $('Extract Okta Fields').item.json.event_type }}\"]\n}"
+      },
+      "name": "Create Okta Case",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [900, 300],
+      "id": "create-case"
+    },
+    {
+      "parameters": {"respondWith": "json", "responseBody": "={\"status\": \"processed\"}"},
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1120, 300],
+      "id": "respond"
+    }
+  ],
+  "connections": {
+    "Okta Webhook": {"main": [[{"node": "Extract Okta Fields", "type": "main", "index": 0}]]},
+    "Extract Okta Fields": {"main": [[{"node": "Route by Event Type", "type": "main", "index": 0}]]},
+    "Route by Event Type": {"main": [[{"node": "Create Okta Case", "type": "main", "index": 0}], [{"node": "Create Okta Case", "type": "main", "index": 0}], [{"node": "Create Okta Case", "type": "main", "index": 0}], [{"node": "Respond", "type": "main", "index": 0}]]},
+    "Create Okta Case": {"main": [[{"node": "Respond", "type": "main", "index": 0}]]}
+  },
+  "active": false,
+  "settings": {"executionOrder": "v1"},
+  "tags": [{"name": "corpsec"}, {"name": "okta"}]
+}

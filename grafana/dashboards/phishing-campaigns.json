@@ -1,0 +1,32 @@
+{
+  "annotations": {"list": []}, "editable": true, "id": null, "links": [],
+  "panels": [
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 0}, "id": 1,
+      "title": "Campaign Click & Submit Rate Over Time",
+      "type": "timeseries",
+      "targets": [
+        {"expr": "corpsec_phishing_click_rate", "legendFormat": "click rate", "refId": "A"},
+        {"expr": "corpsec_phishing_submit_rate", "legendFormat": "credential submit rate", "refId": "B"}
+      ]
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8}, "id": 2,
+      "title": "Failure Rate by Department",
+      "type": "barchart",
+      "targets": [{"expr": "corpsec_phishing_failure_rate by (department)", "refId": "A"}]
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8}, "id": 3,
+      "title": "Repeat Offenders (2+ campaign failures)",
+      "type": "table",
+      "targets": [{"expr": "corpsec_phishing_repeat_offenders", "refId": "A"}]
+    }
+  ],
+  "refresh": "5m", "schemaVersion": 39, "tags": ["soc", "phishing"],
+  "time": {"from": "now-30d", "to": "now"},
+  "title": "Phishing Campaigns", "uid": "phishing-campaigns", "version": 1
+}

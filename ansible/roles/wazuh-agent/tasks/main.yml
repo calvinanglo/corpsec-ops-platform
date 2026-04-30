@@ -1,0 +1,52 @@
+---
+# wazuh-agent role — installs and registers Wazuh agent on Linux/Windows
+# Variables: wazuh_manager (required)
+
+- name: Install Wazuh agent (Debian/Ubuntu)
+  apt:
+    deb: "https://packages.wazuh.com/4.x/apt/pool/main/w/wazuh-agent/wazuh-agent_4.9.2-1_amd64.deb"
+  when: ansible_os_family == "Debian"
+
+- name: Install Wazuh agent (RHEL/CentOS)
+  yum:
+    name: "https://packages.wazuh.com/4.x/yum/wazuh-agent-4.9.2-1.x86_64.rpm"
+    state: present
+  when: ansible_os_family == "RedHat"
+
+- name: Configure manager address
+  template:
+    src: ossec.conf.j2
+    dest: /var/ossec/etc/ossec.conf
+    mode: "0640"
+    owner: root
+    group: wazuh
+  when: ansible_os_family != "Windows"
+  notify: restart wazuh-agent
+
+- name: Register agent via authd (auto-enrollment)
+  shell: |
+    /var/ossec/bin/agent-auth -m {{ wazuh_manager }} -A {{ inventory_hostname }}
+  args:
+    creates: /var/ossec/etc/client.keys
+  when: ansible_os_family != "Windows"
+
+- name: Start and enable Wazuh agent (Linux)
+  systemd:
+    name: wazuh-agent
+    enabled: true
+    state: started
+  when: ansible_os_family != "Windows"
+
+- name: Install Wazuh agent (Windows MSI)
+  win_package:
+    path: "https://packages.wazuh.com/4.x/windows/wazuh-agent-4.9.2-1.msi"
+    state: present
+    arguments: "/q WAZUH_MANAGER='{{ wazuh_manager }}' WAZUH_AGENT_GROUP='windows' WAZUH_AGENT_NAME='{{ inventory_hostname }}'"
+  when: ansible_os_family == "Windows"
+
+- name: Start Wazuh agent service (Windows)
+  win_service:
+    name: WazuhSvc
+    start_mode: auto
+    state: started
+  when: ansible_os_family == "Windows"

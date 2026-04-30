@@ -1,0 +1,116 @@
+---
+# ══════════════════════════════════════════════════════════════════════════════
+# corpsec-ops-platform — Endpoint hardening (CIS + DLP + AI blocking)
+# Tags: corpsec | cis | dlp | ai-block
+# ══════════════════════════════════════════════════════════════════════════════
+
+- name: Linux endpoint hardening
+  hosts: linux_endpoints
+  become: true
+  gather_facts: true
+  tags: [corpsec, linux]
+
+  tasks:
+    - name: Apply CIS Linux baseline
+      include_role:
+        name: cis-linux
+
+    - name: Install Wazuh agent
+      include_role:
+        name: wazuh-agent
+      vars:
+        wazuh_manager: "{{ wazuh_manager_address }}"
+
+    - name: Disable USB mass storage (DLP control)
+      copy:
+        dest: /etc/modprobe.d/blacklist-usbstorage.conf
+        content: "blacklist usb-storage"
+        mode: "0644"
+      notify: rebuild initramfs
+      tags: dlp
+
+    - name: Configure auditd rules for sensitive directories
+      copy:
+        dest: /etc/audit/rules.d/corpsec-dlp.rules
+        content: |
+          # Watch /legal /client-data /finance for read/write
+          -w /legal -p rwa -k corpsec_legal_access
+          -w /client-data -p rwa -k corpsec_client_access
+          -w /finance -p rwa -k corpsec_finance_access
+          # Watch for file copy syscalls
+          -a always,exit -F arch=b64 -S openat -F dir=/legal -k corpsec_dir_open
+        mode: "0640"
+      notify: restart auditd
+      tags: dlp
+
+    - name: Block unauthorized AI service domains via /etc/hosts (DNS-level block)
+      blockinfile:
+        path: /etc/hosts
+        marker: "# {mark} corpsec-ai-block"
+        block: |
+          0.0.0.0 chat.openai.com
+          0.0.0.0 chatgpt.com
+          0.0.0.0 gemini.google.com
+          0.0.0.0 bard.google.com
+          0.0.0.0 copilot.microsoft.com
+          0.0.0.0 perplexity.ai
+          0.0.0.0 chat.deepseek.com
+      tags: ai-block
+
+    - name: Configure rsyslog forwarding to Wazuh manager
+      copy:
+        dest: /etc/rsyslog.d/00-wazuh-forward.conf
+        content: |
+          *.* @@{{ wazuh_manager_address }}:514
+        mode: "0644"
+      notify: restart rsyslog
+
+  handlers:
+    - name: rebuild initramfs
+      command: update-initramfs -u
+    - name: restart auditd
+      service: { name: auditd, state: restarted }
+    - name: restart rsyslog
+      service: { name: rsyslog, state: restarted }
+
+
+- name: Windows endpoint hardening
+  hosts: windows_endpoints
+  gather_facts: true
+  tags: [corpsec, windows]
+
+  tasks:
+    - name: Apply CIS Windows baseline
+      include_role:
+        name: cis-windows
+
+    - name: Install Wazuh agent (Windows)
+      include_role:
+        name: wazuh-agent
+      vars:
+        wazuh_manager: "{{ wazuh_manager_address }}"
+
+    - name: Configure Windows Defender Controlled Folder Access for legal data
+      win_shell: |
+        Set-MpPreference -EnableControlledFolderAccess Enabled
+        Add-MpPreference -ControlledFolderAccessProtectedFolders 'C:\Legal','C:\ClientData','C:\Finance'
+      tags: dlp
+
+    - name: Add firewall rules to block unauthorized AI service IPs
+      win_firewall_rule:
+        name: "Block-AI-Service-{{ item.name }}"
+        direction: out
+        action: block
+        remote_address: "{{ item.ip }}"
+        enabled: true
+      loop:
+        - { name: openai, ip: "104.18.7.34" }   # placeholder — real IPs change frequently
+        - { name: perplexity, ip: "104.21.84.150" }
+      tags: ai-block
+
+    - name: Enable PowerShell script block logging (DLP detection vector)
+      win_regedit:
+        path: HKLM:\SOFTWARE\Wow6432Node\Policies\Microsoft\Windows\PowerShell\ScriptBlockLogging
+        name: EnableScriptBlockLogging
+        data: 1
+        type: dword

@@ -1,0 +1,125 @@
+# ══════════════════════════════════════════════════════════════════════════════
+# corpsec-ops-platform — ISO 27001 Annex A control mapping
+# ══════════════════════════════════════════════════════════════════════════════
+
+framework: ISO 27001
+version: "2022"
+mapped_at: 2026-04-29
+owner: corpsec-team
+
+annex_a_controls:
+  - id: A.5.1
+    name: Policies for information security
+    evidence_source: docs
+    evidence_method: export_policies
+    platform_implementation: Security policies in docs/policies/
+    freshness_days: 365
+
+  - id: A.6.1
+    name: Information security roles and responsibilities
+    evidence_source: okta
+    evidence_method: export_roles
+    platform_implementation:
+      - Okta groups: soc-analyst, soc-lead, compliance-admin, security-engineer
+      - RBAC enforced across all SSO-protected apps
+    freshness_days: 90
+
+  - id: A.8.1
+    name: Inventory of assets
+    evidence_source: wazuh
+    evidence_method: export_agent_inventory
+    platform_implementation:
+      - Wazuh agent registry = endpoint inventory
+      - Intune device list = MDM-managed inventory
+      - CrowdStrike host inventory = EDR inventory
+    freshness_days: 14
+
+  - id: A.9.1
+    name: Access control policy
+    evidence_source: okta
+    evidence_method: export_access_policies
+    freshness_days: 30
+
+  - id: A.9.2
+    name: User access management - JML
+    evidence_source: okta
+    evidence_method: export_jml_audit
+    platform_implementation:
+      - Okta lifecycle workflows for joiner/mover/leaver
+      - SCIM provisioning to GWS, 1Password, Intune
+    freshness_days: 30
+
+  - id: A.9.4
+    name: System access control - authentication
+    evidence_source: okta
+    evidence_method: export_mfa_policies
+    freshness_days: 30
+
+  - id: A.10.1
+    name: Cryptographic controls
+    evidence_source: intune
+    evidence_method: export_encryption_compliance
+    platform_implementation:
+      - Intune compliance policy enforces device encryption
+      - 1Password for secret storage with end-to-end encryption
+    freshness_days: 14
+
+  - id: A.12.1
+    name: Operational procedures and responsibilities
+    evidence_source: docs
+    evidence_method: export_runbooks
+    platform_implementation: 12 runbooks in runbooks/ directory
+    freshness_days: 180
+
+  - id: A.12.4
+    name: Logging and monitoring
+    evidence_source: wazuh
+    evidence_method: export_log_retention_status
+    platform_implementation:
+      - Wazuh indexer (OpenSearch) with 90+ day retention
+      - Loki for application log aggregation
+      - All 5 production tools forward logs via API
+    freshness_days: 30
+
+  - id: A.12.6
+    name: Vulnerability management
+    evidence_source: wazuh
+    evidence_method: export_vulnerability_summary
+    platform_implementation:
+      - Wazuh vulnerability detector
+      - CrowdStrike Spotlight (if enabled in trial)
+    freshness_days: 7
+
+  - id: A.13.1
+    name: Network security management
+    evidence_source: docs
+    evidence_method: export_network_diagrams
+    platform_implementation:
+      - Docker network segmentation (frontend/backend/wazuh networks)
+      - Architecture diagrams in docs/00-architecture.md
+    freshness_days: 180
+
+  - id: A.14.2
+    name: Security in development
+    evidence_source: git
+    evidence_method: export_recent_commits
+    platform_implementation:
+      - Git-based IaC
+      - All infrastructure changes via PR
+    freshness_days: 30
+
+  - id: A.16.1
+    name: Information security incident management
+    evidence_source: thehive
+    evidence_method: export_case_metrics
+    platform_implementation:
+      - TheHive case management
+      - 8 IR runbooks
+      - SLA tracking
+    freshness_days: 14
+
+  - id: A.18.1
+    name: Compliance with legal and contractual requirements
+    evidence_source: docs
+    evidence_method: export_compliance_register
+    freshness_days: 180

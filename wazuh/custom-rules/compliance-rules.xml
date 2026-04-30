@@ -1,0 +1,101 @@
+<!-- ════════════════════════════════════════════════════════════════════════════
+     corpsec-ops-platform — Compliance drift detection rules
+     Rule range: 100800-100899
+     Detects deviation from CIS / SOC 2 / ISO 27001 baselines
+     ════════════════════════════════════════════════════════════════════════════ -->
+<group name="compliance,corpsec,">
+
+  <!-- ── Audit policy changes (SOC 2 CC7.2 / ISO A.12.4) ──────────────────── -->
+  <rule id="100800" level="11">
+    <if_sid>61603,61604</if_sid>
+    <field name="data.win.eventdata.commandLine" type="pcre2">(?i)auditpol.*\/clear|auditpol.*\/remove</field>
+    <description>Compliance: Audit policy CLEARED on $(agent.name) - violates SOC 2 CC7.2</description>
+    <mitre>
+      <id>T1562.002</id>
+    </mitre>
+    <group>compliance_drift,</group>
+  </rule>
+
+  <rule id="100801" level="10">
+    <if_sid>5402,5403,5404</if_sid>
+    <description>Compliance: Sudo configuration changed on $(agent.name) - audit privileged access</description>
+    <group>compliance_drift,</group>
+  </rule>
+
+  <!-- ── Firewall changes (SOC 2 CC6.6 / ISO A.13.1) ──────────────────────── -->
+  <rule id="100810" level="11">
+    <if_sid>61603,61604</if_sid>
+    <field name="data.win.eventdata.commandLine" type="pcre2">(?i)netsh.*advfirewall.*set.*state.*off</field>
+    <description>Compliance: Windows Firewall DISABLED on $(agent.name) - violates SOC 2 CC6.6</description>
+    <mitre>
+      <id>T1562.004</id>
+    </mitre>
+    <group>compliance_drift,</group>
+  </rule>
+
+  <rule id="100811" level="10">
+    <if_sid>5301,5302,5303</if_sid>
+    <description>Compliance: iptables/firewalld rule changed on $(agent.name)</description>
+    <group>compliance_drift,</group>
+  </rule>
+
+  <!-- ── Account lifecycle (SOC 2 CC6.1 / ISO A.9.2) ──────────────────────── -->
+  <rule id="100820" level="9">
+    <if_sid>5901,5902</if_sid>
+    <description>Compliance: New user account created on $(agent.name) - $(data.dstuser) - JML workflow check</description>
+    <group>compliance_drift,</group>
+  </rule>
+
+  <rule id="100821" level="11">
+    <if_sid>61603,61604</if_sid>
+    <field name="data.win.eventdata.commandLine" type="pcre2">(?i)net user.*\/add.*\/active:yes</field>
+    <description>Compliance: Local Windows account created on $(agent.name) - bypasses Okta JML</description>
+    <group>compliance_drift,</group>
+  </rule>
+
+  <!-- ── Logging/SIEM disable (SOC 2 CC7.2 / ISO A.12.4) ──────────────────── -->
+  <rule id="100830" level="13">
+    <if_sid>61603,61604</if_sid>
+    <field name="data.win.eventdata.commandLine" type="pcre2">(?i)(stop-service.*wazuh|net stop.*wazuh|sc.*stop.*wazuh)</field>
+    <description>Compliance: Wazuh agent STOPPED on $(agent.name) - audit logging disabled</description>
+    <mitre>
+      <id>T1562.001</id>
+    </mitre>
+    <group>compliance_drift,critical,</group>
+  </rule>
+
+  <rule id="100831" level="13">
+    <if_sid>61603,61604</if_sid>
+    <field name="data.win.eventdata.commandLine" type="pcre2">(?i)(stop-service.*csagent|net stop.*csfalcon)</field>
+    <description>Compliance: CrowdStrike sensor STOPPED on $(agent.name) - EDR disabled</description>
+    <mitre>
+      <id>T1562.001</id>
+    </mitre>
+    <group>compliance_drift,critical,</group>
+  </rule>
+
+  <!-- ── Encryption status (SOC 2 CC6.7 / ISO A.10.1) ─────────────────────── -->
+  <rule id="100840" level="11">
+    <if_sid>61603,61604</if_sid>
+    <field name="data.win.eventdata.commandLine" type="pcre2">(?i)manage-bde.*-off|disable-bitlocker</field>
+    <description>Compliance: BitLocker encryption DISABLED on $(agent.name) - violates SOC 2 CC6.7</description>
+    <group>compliance_drift,</group>
+  </rule>
+
+  <!-- ── Software inventory drift (SOC 2 CC8.1 / ISO A.12.5) ──────────────── -->
+  <rule id="100850" level="8">
+    <if_sid>23502,23503</if_sid>
+    <field name="data.uninstalled" type="pcre2">(?i)(crowdstrike|wazuh|defender|carbon black)</field>
+    <description>Compliance: Security software UNINSTALLED on $(agent.name) - $(data.uninstalled)</description>
+    <group>compliance_drift,</group>
+  </rule>
+
+  <!-- ── SCA result rules ─────────────────────────────────────────────────── -->
+  <rule id="100860" level="9">
+    <if_sid>19000,19001</if_sid>
+    <field name="data.sca.result">failed</field>
+    <description>Compliance: SCA check FAILED - $(data.sca.check.title) on $(agent.name)</description>
+    <group>compliance_drift,</group>
+  </rule>
+
+</group>

@@ -1,0 +1,7 @@
+<!-- ════════════════════════════════════════════════════════════════════════════
+     corpsec-ops-platform — AI exfiltration JSON decoder
+     ════════════════════════════════════════════════════════════════════════════ -->
+<decoder name="corpsec-ai-detection-json">
+  <prematch>{"source":"corpsec-ai-detection"</prematch>
+  <plugin_decoder>JSON_Decoder</plugin_decoder>
+</decoder>

@@ -1,0 +1,86 @@
+groups:
+  - name: sla-breach
+    interval: 60s
+    rules:
+      # ── TheHive case SLA per severity ──────────────────────────────────────
+      - alert: P1CaseSLABreach
+        expr: corpsec_thehive_open_case_age_seconds{severity="P1"} > 3600
+        for: 1m
+        labels:
+          severity: critical
+          team: soc-lead
+          sla: P1
+        annotations:
+          summary: "P1 case open >1h — SLA BREACH"
+          description: "Case {{ $labels.case_id }} (P1) has been open longer than the 1-hour SLA"
+
+      - alert: P2CaseSLABreach
+        expr: corpsec_thehive_open_case_age_seconds{severity="P2"} > 14400
+        for: 5m
+        labels:
+          severity: warning
+          team: soc-lead
+          sla: P2
+        annotations:
+          summary: "P2 case open >4h — SLA BREACH"
+
+      - alert: P3CaseSLABreach
+        expr: corpsec_thehive_open_case_age_seconds{severity="P3"} > 86400
+        for: 15m
+        labels:
+          severity: warning
+          team: soc
+          sla: P3
+        annotations:
+          summary: "P3 case open >24h — SLA BREACH"
+
+      # ── DLP triage queue SLA ───────────────────────────────────────────────
+      - alert: DLPHighAlertUnacknowledged
+        expr: corpsec_dlp_unacknowledged_seconds{severity="HIGH"} > 3600
+        for: 5m
+        labels:
+          severity: warning
+          team: soc
+        annotations:
+          summary: "DLP HIGH alert unacknowledged >1h"
+
+      - alert: DLPCriticalAlertUnacknowledged
+        expr: corpsec_dlp_unacknowledged_seconds{severity="CRITICAL"} > 1800
+        for: 1m
+        labels:
+          severity: critical
+          team: soc-lead
+        annotations:
+          summary: "DLP CRITICAL alert unacknowledged >30m — SLA BREACH"
+
+      # ── Phishing campaign report response ─────────────────────────────────
+      - alert: PhishingReportTriageStalled
+        expr: corpsec_phishing_report_age_seconds > 14400
+        for: 5m
+        labels:
+          severity: warning
+          team: soc
+        annotations:
+          summary: "User-reported phishing email not triaged in 4h"
+
+      # ── Compliance evidence freshness ─────────────────────────────────────
+      - alert: ComplianceEvidenceStale
+        expr: corpsec_compliance_evidence_age_days > 30
+        for: 1h
+        labels:
+          severity: warning
+          team: compliance-admin
+        annotations:
+          summary: "{{ $labels.framework }} {{ $labels.control_id }} evidence stale (>30d)"
+          description: "Run `make evidence-collect` to refresh"
+
+      # ── Trial expiry warnings ─────────────────────────────────────────────
+      - alert: TrialExpiringSoon
+        expr: corpsec_trial_days_remaining <= 3
+        for: 1m
+        labels:
+          severity: warning
+          team: corpsec
+        annotations:
+          summary: "{{ $labels.tool }} trial expires in {{ $value }} day(s)"
+          description: "Capture remaining screenshots / decide on conversion before expiry"

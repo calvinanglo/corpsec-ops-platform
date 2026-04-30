@@ -1,0 +1,109 @@
+{
+  "annotations": {"list": []},
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"color": {"mode": "thresholds"}, "thresholds": {"mode": "absolute", "steps": [{"color": "green"}, {"color": "red", "value": 5}]}}, "overrides": []},
+      "gridPos": {"h": 4, "w": 4, "x": 0, "y": 0},
+      "id": 1,
+      "options": {"colorMode": "background", "graphMode": "none", "justifyMode": "auto", "orientation": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}},
+      "targets": [{"datasource": {"type": "prometheus", "uid": "prometheus"}, "expr": "sum(corpsec_thehive_open_cases)", "refId": "A"}],
+      "title": "Open Incidents",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "s", "color": {"mode": "thresholds"}, "thresholds": {"mode": "absolute", "steps": [{"color": "green"}, {"color": "yellow", "value": 1800}, {"color": "red", "value": 3600}]}}, "overrides": []},
+      "gridPos": {"h": 4, "w": 4, "x": 4, "y": 0},
+      "id": 2,
+      "options": {"colorMode": "background", "graphMode": "none", "justifyMode": "auto", "orientation": "auto", "reduceOptions": {"calcs": ["mean"], "fields": "", "values": false}},
+      "targets": [{"datasource": {"type": "prometheus", "uid": "prometheus"}, "expr": "avg(corpsec_thehive_mttr_seconds)", "refId": "A"}],
+      "title": "Mean Time To Respond",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"h": 4, "w": 4, "x": 8, "y": 0},
+      "id": 3,
+      "options": {"colorMode": "background", "graphMode": "none", "reduceOptions": {"calcs": ["lastNotNull"]}},
+      "targets": [{"expr": "sum(increase(corpsec_dlp_alerts_total[24h]))", "refId": "A"}],
+      "title": "DLP Alerts (24h)",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"h": 4, "w": 4, "x": 12, "y": 0},
+      "id": 4,
+      "options": {"colorMode": "background", "graphMode": "none", "reduceOptions": {"calcs": ["lastNotNull"]}},
+      "targets": [{"expr": "sum(increase(corpsec_ai_exfil_alerts_total[24h]))", "refId": "A"}],
+      "title": "AI Exfil Alerts (24h)",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"h": 4, "w": 4, "x": 16, "y": 0},
+      "id": 5,
+      "options": {"colorMode": "background", "graphMode": "none", "reduceOptions": {"calcs": ["lastNotNull"]}},
+      "targets": [{"expr": "sum(corpsec_wazuh_active_agents)", "refId": "A"}],
+      "title": "Active EDR Agents",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"h": 4, "w": 4, "x": 20, "y": 0},
+      "id": 6,
+      "fieldConfig": {"defaults": {"unit": "percent", "color": {"mode": "thresholds"}, "thresholds": {"mode": "absolute", "steps": [{"color": "red"}, {"color": "yellow", "value": 80}, {"color": "green", "value": 95}]}}, "overrides": []},
+      "options": {"colorMode": "background", "graphMode": "none", "reduceOptions": {"calcs": ["lastNotNull"]}},
+      "targets": [{"expr": "corpsec_compliance_score_percent", "refId": "A"}],
+      "title": "Compliance Score",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4},
+      "id": 7,
+      "fieldConfig": {"defaults": {"custom": {"drawStyle": "line", "fillOpacity": 30, "stacking": {"mode": "normal"}}}, "overrides": []},
+      "options": {"legend": {"displayMode": "table", "placement": "right", "calcs": ["mean", "max"]}, "tooltip": {"mode": "multi"}},
+      "targets": [
+        {"expr": "rate(corpsec_alerts_total{source=\"crowdstrike\"}[5m])", "legendFormat": "CrowdStrike", "refId": "A"},
+        {"expr": "rate(corpsec_alerts_total{source=\"okta\"}[5m])", "legendFormat": "Okta", "refId": "B"},
+        {"expr": "rate(corpsec_alerts_total{source=\"google_workspace\"}[5m])", "legendFormat": "Google Workspace", "refId": "C"},
+        {"expr": "rate(corpsec_alerts_total{source=\"corpsec-dlp\"}[5m])", "legendFormat": "DLP", "refId": "D"},
+        {"expr": "rate(corpsec_alerts_total{source=\"corpsec-ai-detection\"}[5m])", "legendFormat": "AI Detection", "refId": "E"},
+        {"expr": "rate(corpsec_alerts_total{source=\"intune\"}[5m])", "legendFormat": "Intune", "refId": "F"},
+        {"expr": "rate(corpsec_alerts_total{source=\"onepassword\"}[5m])", "legendFormat": "1Password", "refId": "G"}
+      ],
+      "title": "Alert Volume by Source (5min rate, stacked)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4},
+      "id": 8,
+      "options": {"legend": {"displayMode": "table", "placement": "right"}},
+      "targets": [
+        {"expr": "topk(10, sum by (rule_id) (rate(corpsec_alerts_total[1h])))", "legendFormat": "rule {{ rule_id }}", "refId": "A"}
+      ],
+      "title": "Top 10 Firing Rules (1h)",
+      "type": "timeseries"
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "style": "dark",
+  "tags": ["soc", "corpsec", "overview"],
+  "templating": {"list": []},
+  "time": {"from": "now-6h", "to": "now"},
+  "timepicker": {},
+  "timezone": "",
+  "title": "SOC Overview",
+  "uid": "soc-overview",
+  "version": 1,
+  "weekStart": ""
+}

@@ -1,0 +1,440 @@
+# ══════════════════════════════════════════════════════════════════════════════
+# corpsec-ops-platform — Core Stack
+# Wazuh SIEM + TheHive IR + Grafana SOC + Observability
+# 13 containers, ~12 GB RAM
+# ══════════════════════════════════════════════════════════════════════════════
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+    tag: "{{.Name}}"
+
+x-healthcheck-defaults: &healthcheck-defaults
+  interval: 30s
+  timeout: 10s
+  retries: 3
+  start_period: 60s
+
+networks:
+  corpsec-frontend:
+    name: corpsec-frontend
+    driver: bridge
+  corpsec-backend:
+    name: corpsec-backend
+    driver: bridge
+    internal: true
+  corpsec-wazuh:
+    name: corpsec-wazuh
+    driver: bridge
+    internal: true
+
+volumes:
+  corpsec-wazuh-manager-data:
+  corpsec-wazuh-manager-etc:
+  corpsec-wazuh-manager-logs:
+  corpsec-wazuh-indexer-data:
+  corpsec-wazuh-dashboard-data:
+  corpsec-thehive-db-data:
+  corpsec-thehive-index-data:
+  corpsec-thehive-data:
+  corpsec-cortex-data:
+  corpsec-grafana-data:
+  corpsec-prometheus-data:
+  corpsec-loki-data:
+  corpsec-alertmanager-data:
+
+services:
+
+  # ── nginx — TLS reverse proxy ───────────────────────────────────────────────
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: corpsec-nginx
+    restart: unless-stopped
+    ports:
+      - "443:443"      # default
+      - "5443:5443"    # wazuh-dashboard
+      - "9443:9443"    # thehive
+      - "3443:3443"    # grafana
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./certs/server.crt:/etc/nginx/certs/server.crt:ro
+      - ./certs/server.key:/etc/nginx/certs/server.key:ro
+    networks:
+      - corpsec-frontend
+    depends_on:
+      wazuh-dashboard:
+        condition: service_healthy
+      thehive:
+        condition: service_healthy
+      grafana:
+        condition: service_healthy
+    healthcheck:
+      <<: *healthcheck-defaults
+      test: ["CMD", "nginx", "-t"]
+    logging: *default-logging
+    deploy:
+      resources:
+        limits: { cpus: "0.25", memory: 128M }
+        reservations: { cpus: "0.05", memory: 32M }
+
+  # ── Wazuh — SIEM + EDR + FIM + Vuln Detector ────────────────────────────────
+  wazuh-manager:
+    image: wazuh/wazuh-manager:${WAZUH_VERSION:-4.9.2}
+    container_name: corpsec-wazuh-manager
+    restart: unless-stopped
+    hostname: wazuh-manager
+    ports:
+      - "1514:1514/udp"   # syslog ingestion
+      - "1515:1515"       # agent registration
+      - "514:514/udp"     # syslog
+      - "55000:55000"     # API
+    environment:
+      INDEXER_URL: https://wazuh-indexer:9200
+      INDEXER_USERNAME: ${WAZUH_INDEXER_USERNAME:-admin}
+      INDEXER_PASSWORD: ${WAZUH_INDEXER_PASSWORD}
+      FILEBEAT_SSL_VERIFICATION_MODE: full
+      SSL_CERTIFICATE_AUTHORITIES: /etc/ssl/root-ca.pem
+      SSL_CERTIFICATE: /etc/ssl/filebeat.pem
+      SSL_KEY: /etc/ssl/filebeat.key
+      API_USERNAME: ${WAZUH_API_USER:-wazuh-wui}
+      API_PASSWORD: ${WAZUH_API_PASSWORD}
+    volumes:
+      - corpsec-wazuh-manager-data:/var/ossec/data
+      - corpsec-wazuh-manager-logs:/var/ossec/logs
+      - corpsec-wazuh-manager-etc:/var/ossec/etc
+      - ./wazuh/ossec.conf:/wazuh-config-mount/etc/ossec.conf:ro
+      - ./wazuh/custom-rules:/var/ossec/etc/rules:ro
+      - ./wazuh/decoders:/var/ossec/etc/decoders:ro
+      - ./wazuh/active-response:/var/ossec/active-response/bin/custom:ro
+    networks:
+      - corpsec-frontend
+      - corpsec-wazuh
+    depends_on:
+      wazuh-indexer:
+        condition: service_healthy
+    healthcheck:
+      <<: *healthcheck-defaults
+      test: ["CMD-SHELL", "curl -k -f -u $$API_USERNAME:$$API_PASSWORD https://localhost:55000/?pretty=true || exit 1"]
+      start_period: 120s
+    logging: *default-logging
+    deploy:
+      resources:
+        limits: { cpus: "1.5", memory: 2048M }
+        reservations: { cpus: "0.5", memory: 1024M }
+
+  wazuh-indexer:
+    image: wazuh/wazuh-indexer:${WAZUH_VERSION:-4.9.2}
+    container_name: corpsec-wazuh-indexer
+    restart: unless-stopped
+    hostname: wazuh-indexer
+    environment:
+      OPENSEARCH_JAVA_OPTS: "-Xms1g -Xmx1g"
+      bootstrap.memory_lock: "true"
+      DISABLE_INSTALL_DEMO_CONFIG: "true"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+    volumes:
+      - corpsec-wazuh-indexer-data:/var/lib/wazuh-indexer
+    networks:
+      - corpsec-wazuh
+    healthcheck:
+      <<: *healthcheck-defaults
+      test: ["CMD-SHELL", "curl -sk https://localhost:9200 -u admin:${WAZUH_INDEXER_PASSWORD} | grep -q cluster_name || exit 1"]
+      start_period: 90s
+    logging: *default-logging
+    deploy:
+      resources:
+        limits: { cpus: "1.0", memory: 2048M }
+        reservations: { cpus: "0.5", memory: 1024M }
+
+  wazuh-dashboard:
+    image: wazuh/wazuh-dashboard:${WAZUH_VERSION:-4.9.2}
+    container_name: corpsec-wazuh-dashboard
+    restart: unless-stopped
+    hostname: wazuh-dashboard
+    environment:
+      INDEXER_USERNAME: ${WAZUH_INDEXER_USERNAME:-admin}
+      INDEXER_PASSWORD: ${WAZUH_INDEXER_PASSWORD}
+      WAZUH_API_URL: https://wazuh-manager
+      DASHBOARD_USERNAME: ${WAZUH_DASHBOARD_USERNAME:-kibanaserver}
+      DASHBOARD_PASSWORD: ${WAZUH_DASHBOARD_PASSWORD}
+      SERVER_SSL_ENABLED: "true"
+    volumes:
+      - corpsec-wazuh-dashboard-data:/usr/share/wazuh-dashboard/data
+    networks:
+      - corpsec-frontend
+      - corpsec-wazuh
+    depends_on:
+      wazuh-indexer:
+        condition: service_healthy
+      wazuh-manager:
+        condition: service_healthy
+    healthcheck:
+      <<: *healthcheck-defaults
+      test: ["CMD-SHELL", "curl -sk https://localhost:5601/api/status | grep -q available || exit 1"]
+      start_period: 120s
+    logging: *default-logging
+    deploy:
+      resources:
+        limits: { cpus: "0.5", memory: 512M }
+        reservations: { cpus: "0.1", memory: 128M }
+
+  # ── TheHive + Cortex — Incident Response ────────────────────────────────────
+  thehive-db:
+    image: cassandra:${CASSANDRA_VERSION:-4.1}
+    container_name: corpsec-thehive-db
+    restart: unless-stopped
+    hostname: cassandra
+    environment:
+      CASSANDRA_CLUSTER_NAME: thp
+      MAX_HEAP_SIZE: 1024M
+      HEAP_NEWSIZE: 256M
+    volumes:
+      - corpsec-thehive-db-data:/var/lib/cassandra
+    networks:
+      - corpsec-backend
+    healthcheck:
+      <<: *healthcheck-defaults
+      test: ["CMD-SHELL", "nodetool status | grep -q '^UN' || exit 1"]
+      start_period: 90s
+    logging: *default-logging
+    deploy:
+      resources:
+        limits: { cpus: "1.0", memory: 2048M }
+        reservations: { cpus: "0.5", memory: 1024M }
+
+  thehive-index:
+    image: elasticsearch:${ELASTICSEARCH_VERSION:-7.17.24}
+    container_name: corpsec-thehive-index
+    restart: unless-stopped
+    hostname: elasticsearch
+    environment:
+      discovery.type: single-node
+      xpack.security.enabled: "false"
+      ES_JAVA_OPTS: "-Xms512m -Xmx512m"
+      cluster.name: hive
+      thread_pool.search.queue_size: 100000
+      thread_pool.write.queue_size: 10000
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+    volumes:
+      - corpsec-thehive-index-data:/usr/share/elasticsearch/data
+    networks:
+      - corpsec-backend
+    healthcheck:
+      <<: *healthcheck-defaults
+      test: ["CMD-SHELL", "curl -sf http://localhost:9200/_cluster/health | grep -q -E 'green|yellow' || exit 1"]
+      start_period: 60s
+    logging: *default-logging
+    deploy:
+      resources:
+        limits: { cpus: "0.5", memory: 1024M }
+        reservations: { cpus: "0.2", memory: 512M }
+
+  cortex:
+    image: thehiveproject/cortex:${CORTEX_VERSION:-3.1.8}
+    container_name: corpsec-cortex
+    restart: unless-stopped
+    hostname: cortex
+    environment:
+      JOB_DIRECTORY: /tmp/cortex-jobs
+    volumes:
+      - corpsec-cortex-data:/opt/cortex/data
+      - ./thehive/cortex/application.conf:/etc/cortex/application.conf:ro
+      - ./thehive/cortex/analyzers:/opt/cortex/custom-analyzers:ro
+    networks:
+      - corpsec-backend
+    depends_on:
+      thehive-index:
+        condition: service_healthy
+    healthcheck:
+      <<: *healthcheck-defaults
+      test: ["CMD-SHELL", "curl -sf http://localhost:9001/api/status || exit 1"]
+      start_period: 60s
+    logging: *default-logging
+    deploy:
+      resources:
+        limits: { cpus: "0.5", memory: 1024M }
+        reservations: { cpus: "0.2", memory: 512M }
+
+  thehive:
+    image: strangebee/thehive:${THEHIVE_VERSION:-5.4}
+    container_name: corpsec-thehive
+    restart: unless-stopped
+    hostname: thehive
+    command:
+      - --no-config
+      - --no-config-secret
+      - --secret
+      - "${THEHIVE_SECRET}"
+      - "--cql-hostnames"
+      - "thehive-db"
+      - "--index-backend"
+      - "elasticsearch"
+      - "--es-hostnames"
+      - "thehive-index"
+      - "--cortex-hostnames"
+      - "cortex"
+      - "--cortex-keys"
+      - "${CORTEX_API_KEY}"
+    volumes:
+      - corpsec-thehive-data:/etc/thehive/application.conf
+      - ./thehive/application.conf:/etc/thehive/application.conf:ro
+    networks:
+      - corpsec-frontend
+      - corpsec-backend
+    depends_on:
+      thehive-db:
+        condition: service_healthy
+      thehive-index:
+        condition: service_healthy
+      cortex:
+        condition: service_healthy
+    healthcheck:
+      <<: *healthcheck-defaults
+      test: ["CMD-SHELL", "curl -sf http://localhost:9000/api/v1/status | grep -q OK || exit 1"]
+      start_period: 120s
+    logging: *default-logging
+    deploy:
+      resources:
+        limits: { cpus: "1.0", memory: 1536M }
+        reservations: { cpus: "0.3", memory: 768M }
+
+  # ── Grafana — SOC Dashboards ────────────────────────────────────────────────
+  grafana:
+    image: grafana/grafana:${GRAFANA_VERSION:-11.5.2}
+    container_name: corpsec-grafana
+    restart: unless-stopped
+    hostname: grafana
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GF_SECURITY_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GF_SECURITY_ADMIN_PASSWORD}
+      GF_SECURITY_SECRET_KEY: ${GF_SECURITY_SECRET_KEY}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_GENERIC_OAUTH_ENABLED: ${GF_AUTH_GENERIC_OAUTH_ENABLED:-false}
+      GF_AUTH_GENERIC_OAUTH_NAME: ${GF_AUTH_GENERIC_OAUTH_NAME:-Okta}
+      GF_AUTH_GENERIC_OAUTH_CLIENT_ID: ${GF_AUTH_GENERIC_OAUTH_CLIENT_ID}
+      GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET: ${GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET}
+      GF_AUTH_GENERIC_OAUTH_SCOPES: openid profile email groups
+      GF_AUTH_GENERIC_OAUTH_AUTH_URL: ${GF_AUTH_GENERIC_OAUTH_AUTH_URL}
+      GF_AUTH_GENERIC_OAUTH_TOKEN_URL: ${GF_AUTH_GENERIC_OAUTH_TOKEN_URL}
+      GF_AUTH_GENERIC_OAUTH_API_URL: ${GF_AUTH_GENERIC_OAUTH_API_URL}
+      GF_AUTH_GENERIC_OAUTH_ROLE_ATTRIBUTE_PATH: contains(groups[*], 'soc-lead') && 'Admin' || contains(groups[*], 'compliance-admin') && 'Editor' || 'Viewer'
+    volumes:
+      - corpsec-grafana-data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    networks:
+      - corpsec-frontend
+      - corpsec-backend
+    depends_on:
+      prometheus:
+        condition: service_healthy
+      loki:
+        condition: service_healthy
+    healthcheck:
+      <<: *healthcheck-defaults
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:3000/api/health || exit 1"]
+    logging: *default-logging
+    deploy:
+      resources:
+        limits: { cpus: "0.5", memory: 512M }
+        reservations: { cpus: "0.1", memory: 128M }
+
+  # ── Prometheus / Loki / Alertmanager — Observability ────────────────────────
+  prometheus:
+    image: prom/prometheus:${PROMETHEUS_VERSION:-v2.54.0}
+    container_name: corpsec-prometheus
+    restart: unless-stopped
+    hostname: prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=30d
+      - --web.console.libraries=/etc/prometheus/console_libraries
+      - --web.console.templates=/etc/prometheus/consoles
+      - --web.enable-lifecycle
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/alert-rules:/etc/prometheus/alert-rules:ro
+      - corpsec-prometheus-data:/prometheus
+    networks:
+      - corpsec-backend
+    healthcheck:
+      <<: *healthcheck-defaults
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:9090/-/healthy || exit 1"]
+    logging: *default-logging
+    deploy:
+      resources:
+        limits: { cpus: "0.5", memory: 512M }
+        reservations: { cpus: "0.1", memory: 128M }
+
+  loki:
+    image: grafana/loki:${LOKI_VERSION:-3.4.2}
+    container_name: corpsec-loki
+    restart: unless-stopped
+    hostname: loki
+    command: -config.file=/etc/loki/local-config.yaml
+    volumes:
+      - corpsec-loki-data:/loki
+    networks:
+      - corpsec-backend
+    healthcheck:
+      <<: *healthcheck-defaults
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:3100/ready || exit 1"]
+    logging: *default-logging
+    deploy:
+      resources:
+        limits: { cpus: "0.25", memory: 256M }
+        reservations: { cpus: "0.05", memory: 64M }
+
+  promtail:
+    image: grafana/promtail:${PROMTAIL_VERSION:-3.4.2}
+    container_name: corpsec-promtail
+    restart: unless-stopped
+    command: -config.file=/etc/promtail/config.yml
+    volumes:
+      - /var/log:/var/log:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - ./promtail/config.yml:/etc/promtail/config.yml:ro
+    networks:
+      - corpsec-backend
+    depends_on:
+      loki:
+        condition: service_healthy
+    logging: *default-logging
+    deploy:
+      resources:
+        limits: { cpus: "0.15", memory: 128M }
+        reservations: { cpus: "0.05", memory: 32M }
+
+  alertmanager:
+    image: prom/alertmanager:${ALERTMANAGER_VERSION:-v0.27.0}
+    container_name: corpsec-alertmanager
+    restart: unless-stopped
+    hostname: alertmanager
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+      - --storage.path=/alertmanager
+    volumes:
+      - ./alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - corpsec-alertmanager-data:/alertmanager
+    networks:
+      - corpsec-backend
+    healthcheck:
+      <<: *healthcheck-defaults
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:9093/-/healthy || exit 1"]
+    logging: *default-logging
+    deploy:
+      resources:
+        limits: { cpus: "0.15", memory: 128M }
+        reservations: { cpus: "0.05", memory: 32M }

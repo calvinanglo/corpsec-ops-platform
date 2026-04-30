@@ -1,0 +1,29 @@
+<!-- ════════════════════════════════════════════════════════════════════════════
+     corpsec-ops-platform — Real production tool JSON decoders
+     Okta, CrowdStrike, Google Workspace, 1Password, Intune
+     ════════════════════════════════════════════════════════════════════════════ -->
+
+<decoder name="corpsec-okta-json">
+  <prematch>{"source":"okta"</prematch>
+  <plugin_decoder>JSON_Decoder</plugin_decoder>
+</decoder>
+
+<decoder name="corpsec-crowdstrike-json">
+  <prematch>{"source":"crowdstrike"</prematch>
+  <plugin_decoder>JSON_Decoder</plugin_decoder>
+</decoder>
+
+<decoder name="corpsec-gws-json">
+  <prematch>{"source":"google_workspace"</prematch>
+  <plugin_decoder>JSON_Decoder</plugin_decoder>
+</decoder>
+
+<decoder name="corpsec-onepassword-json">
+  <prematch>{"source":"onepassword"</prematch>
+  <plugin_decoder>JSON_Decoder</plugin_decoder>
+</decoder>
+
+<decoder name="corpsec-intune-json">
+  <prematch>{"source":"intune"</prematch>
+  <plugin_decoder>JSON_Decoder</plugin_decoder>
+</decoder>

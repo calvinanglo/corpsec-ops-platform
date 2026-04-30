@@ -1,0 +1,76 @@
+{
+  "name": "Phishing Report Triage (User-Reported Email)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "phishing-report",
+        "responseMode": "responseNode"
+      },
+      "name": "Phishing Report Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300],
+      "id": "phishing-webhook"
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {"name": "reporter", "value": "={{ $json.reporter_email }}"},
+            {"name": "subject", "value": "={{ $json.email_subject }}"},
+            {"name": "sender", "value": "={{ $json.email_sender }}"},
+            {"name": "url", "value": "={{ $json.first_link || '' }}"}
+          ]
+        }
+      },
+      "name": "Extract Fields",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [460, 300],
+      "id": "extract"
+    },
+    {
+      "parameters": {
+        "url": "=http://thehive:9000/api/v1/case",
+        "method": "POST",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {"name": "Authorization", "value": "Bearer ={{ $env.THEHIVE_API_KEY }}"},
+            {"name": "Content-Type", "value": "application/json"}
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"title\": \"[Phishing Report] {{ $('Extract Fields').item.json.subject }}\",\n  \"description\": \"User-reported phishing email\\n\\n- Reporter: {{ $('Extract Fields').item.json.reporter }}\\n- Sender: {{ $('Extract Fields').item.json.sender }}\\n- URL: {{ $('Extract Fields').item.json.url }}\\n\\nSee runbook IR-001-phishing-response.md for next steps.\",\n  \"severity\": 2,\n  \"tags\": [\"phishing\", \"user-reported\"]\n}"
+      },
+      "name": "Create Case",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [680, 300],
+      "id": "create-case"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\"status\": \"case_created\", \"case_id\": \"{{ $('Create Case').item.json._id }}\"}"
+      },
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [900, 300],
+      "id": "respond"
+    }
+  ],
+  "connections": {
+    "Phishing Report Webhook": {"main": [[{"node": "Extract Fields", "type": "main", "index": 0}]]},
+    "Extract Fields": {"main": [[{"node": "Create Case", "type": "main", "index": 0}]]},
+    "Create Case": {"main": [[{"node": "Respond", "type": "main", "index": 0}]]}
+  },
+  "active": false,
+  "settings": {"executionOrder": "v1"},
+  "tags": [{"name": "corpsec"}, {"name": "phishing"}]
+}

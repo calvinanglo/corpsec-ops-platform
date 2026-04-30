@@ -1,0 +1,114 @@
+# ══════════════════════════════════════════════════════════════════════════════
+# corpsec-ops-platform — SOAR Overlay
+# n8n workflow automation + Python detection/remediation/compliance engine
+# Usage: docker compose -f docker-compose.yml -f docker-compose.soar.yml up -d
+# ══════════════════════════════════════════════════════════════════════════════
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+    tag: "{{.Name}}"
+
+x-healthcheck-defaults: &healthcheck-defaults
+  interval: 30s
+  timeout: 10s
+  retries: 3
+  start_period: 60s
+
+volumes:
+  corpsec-n8n-data:
+  corpsec-python-state:
+
+services:
+
+  n8n:
+    image: n8nio/n8n:${N8N_VERSION:-1.73.1}
+    container_name: corpsec-n8n
+    restart: unless-stopped
+    hostname: n8n
+    ports:
+      - "7443:5678"
+    environment:
+      N8N_HOST: 0.0.0.0
+      N8N_PORT: 5678
+      N8N_PROTOCOL: http
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY}
+      N8N_BASIC_AUTH_ACTIVE: "true"
+      N8N_BASIC_AUTH_USER: ${N8N_BASIC_AUTH_USER}
+      N8N_BASIC_AUTH_PASSWORD: ${N8N_BASIC_AUTH_PASSWORD}
+      N8N_USER_MANAGEMENT_DISABLED: "true"
+      WEBHOOK_URL: http://n8n:5678/
+      GENERIC_TIMEZONE: ${TZ:-America/Vancouver}
+      EXECUTIONS_DATA_PRUNE: "true"
+      EXECUTIONS_DATA_MAX_AGE: 168
+    volumes:
+      - corpsec-n8n-data:/home/node/.n8n
+      - ./n8n/workflows:/home/node/.n8n/workflows:ro
+    networks:
+      - corpsec-frontend
+      - corpsec-backend
+    healthcheck:
+      <<: *healthcheck-defaults
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:5678/healthz || exit 1"]
+    logging: *default-logging
+    deploy:
+      resources:
+        limits: { cpus: "0.5", memory: 512M }
+        reservations: { cpus: "0.1", memory: 128M }
+
+  corpsec-python:
+    build:
+      context: ./python
+      dockerfile: Dockerfile
+    image: corpsec-python:latest
+    container_name: corpsec-python
+    restart: unless-stopped
+    hostname: corpsec-python
+    environment:
+      # Wazuh
+      WAZUH_API_URL: https://wazuh-manager:55000
+      WAZUH_API_USER: ${WAZUH_API_USER}
+      WAZUH_API_PASSWORD: ${WAZUH_API_PASSWORD}
+      # TheHive
+      THEHIVE_URL: http://thehive:9000
+      THEHIVE_API_KEY: ${THEHIVE_API_KEY:-}
+      # Cortex
+      CORTEX_URL: http://cortex:9001
+      CORTEX_API_KEY: ${CORTEX_API_KEY}
+      # Real Production Tools
+      OKTA_ORG_URL: ${OKTA_ORG_URL}
+      OKTA_API_TOKEN: ${OKTA_API_TOKEN}
+      CROWDSTRIKE_CLIENT_ID: ${CROWDSTRIKE_CLIENT_ID}
+      CROWDSTRIKE_CLIENT_SECRET: ${CROWDSTRIKE_CLIENT_SECRET}
+      CROWDSTRIKE_BASE_URL: ${CROWDSTRIKE_BASE_URL}
+      GWS_DOMAIN: ${GWS_DOMAIN}
+      GWS_DELEGATED_USER: ${GWS_DELEGATED_USER}
+      OP_SERVICE_ACCOUNT_TOKEN: ${OP_SERVICE_ACCOUNT_TOKEN}
+      INTUNE_TENANT_ID: ${INTUNE_TENANT_ID}
+      INTUNE_CLIENT_ID: ${INTUNE_CLIENT_ID}
+      INTUNE_CLIENT_SECRET: ${INTUNE_CLIENT_SECRET}
+      GRAPH_API_BASE_URL: ${GRAPH_API_BASE_URL}
+      # Logging
+      LOG_LEVEL: INFO
+      AUDIT_LOG_PATH: /var/log/corpsec/audit.jsonl
+    volumes:
+      - corpsec-python-state:/var/log/corpsec
+      - ./python:/app:ro
+      - ./compliance:/compliance
+      - ./testdata:/testdata:ro
+    networks:
+      - corpsec-frontend
+      - corpsec-backend
+    depends_on:
+      wazuh-manager:
+        condition: service_healthy
+    healthcheck:
+      <<: *healthcheck-defaults
+      test: ["CMD-SHELL", "curl -sf http://localhost:8080/health || exit 1"]
+    logging: *default-logging
+    deploy:
+      resources:
+        limits: { cpus: "0.5", memory: 512M }
+        reservations: { cpus: "0.1", memory: 128M }

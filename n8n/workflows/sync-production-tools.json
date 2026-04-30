@@ -1,0 +1,91 @@
+{
+  "name": "Production Tool Log Sync (Okta + CrowdStrike + GWS + 1Password + Intune)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {"interval": [{"field": "minutes", "minutesInterval": 5}]}
+      },
+      "name": "Schedule (every 5 min)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [240, 400],
+      "id": "schedule"
+    },
+    {
+      "parameters": {
+        "url": "http://corpsec-python:8080/health",
+        "method": "GET"
+      },
+      "name": "Health Check",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [460, 400],
+      "id": "health-check"
+    },
+    {
+      "parameters": {
+        "command": "python -m integrations.okta.log_streamer --since 5m"
+      },
+      "name": "Sync Okta",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [680, 200],
+      "id": "sync-okta"
+    },
+    {
+      "parameters": {
+        "command": "python -m integrations.crowdstrike.detection_streamer --since 5m"
+      },
+      "name": "Sync CrowdStrike",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [680, 320],
+      "id": "sync-crowdstrike"
+    },
+    {
+      "parameters": {
+        "command": "python -m integrations.google_workspace.audit_log_streamer --since 5m"
+      },
+      "name": "Sync GWS",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [680, 440],
+      "id": "sync-gws"
+    },
+    {
+      "parameters": {
+        "command": "python -m integrations.onepassword.audit_log_streamer --since 5m"
+      },
+      "name": "Sync 1Password",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [680, 560],
+      "id": "sync-1password"
+    },
+    {
+      "parameters": {
+        "command": "python -m integrations.intune.device_streamer"
+      },
+      "name": "Sync Intune",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [680, 680],
+      "id": "sync-intune"
+    }
+  ],
+  "connections": {
+    "Schedule (every 5 min)": {"main": [[{"node": "Health Check", "type": "main", "index": 0}]]},
+    "Health Check": {
+      "main": [[
+        {"node": "Sync Okta", "type": "main", "index": 0},
+        {"node": "Sync CrowdStrike", "type": "main", "index": 0},
+        {"node": "Sync GWS", "type": "main", "index": 0},
+        {"node": "Sync 1Password", "type": "main", "index": 0},
+        {"node": "Sync Intune", "type": "main", "index": 0}
+      ]]
+    }
+  },
+  "active": false,
+  "settings": {"executionOrder": "v1"},
+  "tags": [{"name": "corpsec"}, {"name": "log-sync"}]
+}

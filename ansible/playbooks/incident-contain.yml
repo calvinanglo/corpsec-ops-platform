@@ -1,0 +1,70 @@
+---
+# ══════════════════════════════════════════════════════════════════════════════
+# corpsec-ops-platform — Emergency incident containment
+# Run manually during active incident — destructive operations gated on confirm
+# Usage: ansible-playbook incident-contain.yml -e "target_host=endpoint-linux-01 confirm=YES"
+# ══════════════════════════════════════════════════════════════════════════════
+
+- name: Emergency containment
+  hosts: "{{ target_host | default('none') }}"
+  become: true
+  gather_facts: true
+
+  pre_tasks:
+    - name: SAFETY - require explicit confirmation
+      fail:
+        msg: "Set confirm=YES to proceed (this disables network on the target)"
+      when: confirm | default('') != 'YES'
+
+  tasks:
+    - name: Capture process snapshot (forensic)
+      shell: "ps auxef > /tmp/corpsec-forensic-ps-{{ ansible_date_time.epoch }}.txt"
+      changed_when: false
+
+    - name: Capture network connection snapshot
+      shell: "ss -tulnpe > /tmp/corpsec-forensic-netstat-{{ ansible_date_time.epoch }}.txt"
+      changed_when: false
+      when: ansible_os_family != 'Windows'
+
+    - name: Capture loaded kernel modules
+      shell: "lsmod > /tmp/corpsec-forensic-lsmod-{{ ansible_date_time.epoch }}.txt"
+      changed_when: false
+      when: ansible_os_family != 'Windows'
+
+    - name: Pull files modified in last 24h
+      shell: "find / -type f -mtime -1 -not -path '/proc/*' -not -path '/sys/*' > /tmp/corpsec-forensic-recent-{{ ansible_date_time.epoch }}.txt 2>/dev/null"
+      changed_when: false
+      when: ansible_os_family != 'Windows'
+
+    - name: Fetch forensic artifacts to control node
+      synchronize:
+        mode: pull
+        src: "/tmp/corpsec-forensic-*"
+        dest: "../forensic-evidence/{{ inventory_hostname }}-{{ ansible_date_time.epoch }}/"
+
+    - name: Disable all non-management network interfaces (Linux)
+      shell: |
+        for iface in $(ip -o link show | awk -F': ' '{print $2}' | grep -vE '^(lo|mgmt0)$'); do
+          ip link set "$iface" down
+        done
+      when: ansible_os_family != 'Windows'
+
+    - name: Disable all non-management network adapters (Windows)
+      win_shell: |
+        Get-NetAdapter | Where-Object { $_.Name -notmatch 'Management' } | Disable-NetAdapter -Confirm:$false
+      when: ansible_os_family == 'Windows'
+
+    - name: Kill all user sessions (force logout)
+      shell: pkill -KILL -u {{ item }}
+      loop: "{{ ansible_user_id_list | default([]) }}"
+      ignore_errors: true
+      when: ansible_os_family != 'Windows'
+
+    - name: Audit log entry
+      lineinfile:
+        path: /var/log/corpsec-incidents.log
+        line: "{{ ansible_date_time.iso8601 }} CONTAINMENT applied to {{ inventory_hostname }} by {{ ansible_user_id }}"
+        create: true
+        mode: "0600"
+      delegate_to: localhost
+      become: false

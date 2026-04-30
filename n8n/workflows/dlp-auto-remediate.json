@@ -1,0 +1,77 @@
+{
+  "name": "DLP Alert Auto-Remediation",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "dlp-alert",
+        "responseMode": "responseNode"
+      },
+      "name": "DLP Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300],
+      "id": "dlp-webhook"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [{"value1": "={{ $json.severity }}", "operation": "equal", "value2": "CRITICAL"}]
+        }
+      },
+      "name": "Critical?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [460, 300],
+      "id": "critical-check"
+    },
+    {
+      "parameters": {
+        "url": "http://corpsec-python:8080/remediate/quarantine-file",
+        "method": "POST",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"file_path\": \"{{ $json.file_path }}\",\n  \"user\": \"{{ $json.user }}\",\n  \"alert_id\": \"{{ $json.scan_id }}\"\n}"
+      },
+      "name": "Quarantine File",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [680, 240],
+      "id": "quarantine"
+    },
+    {
+      "parameters": {
+        "url": "http://corpsec-python:8080/remediate/disable-user",
+        "method": "POST",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"user_email\": \"{{ $json.user }}\",\n  \"alert_id\": \"{{ $json.scan_id }}\"\n}"
+      },
+      "name": "Disable User (Okta)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [900, 240],
+      "id": "disable-user"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\"status\": \"processed\"}"
+      },
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1120, 300],
+      "id": "respond"
+    }
+  ],
+  "connections": {
+    "DLP Webhook": {"main": [[{"node": "Critical?", "type": "main", "index": 0}]]},
+    "Critical?": {"main": [[{"node": "Quarantine File", "type": "main", "index": 0}], [{"node": "Respond", "type": "main", "index": 0}]]},
+    "Quarantine File": {"main": [[{"node": "Disable User (Okta)", "type": "main", "index": 0}]]},
+    "Disable User (Okta)": {"main": [[{"node": "Respond", "type": "main", "index": 0}]]}
+  },
+  "active": false,
+  "settings": {"executionOrder": "v1"},
+  "tags": [{"name": "corpsec"}, {"name": "dlp"}]
+}

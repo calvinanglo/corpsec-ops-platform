@@ -1,0 +1,43 @@
+groups:
+  - name: soc-alerts
+    interval: 30s
+    rules:
+      - alert: HighDLPAlertVolume
+        expr: rate(corpsec_dlp_alerts_total[5m]) > 5
+        for: 10m
+        labels:
+          severity: warning
+          team: soc
+        annotations:
+          summary: "DLP alert volume elevated ({{ $value }} alerts/sec)"
+          description: "DLP alert rate is 2x baseline — investigate for false positive surge or active exfiltration"
+
+      - alert: AIExfilCriticalDetection
+        expr: increase(corpsec_ai_exfil_critical_total[5m]) > 0
+        for: 0m
+        labels:
+          severity: critical
+          team: soc
+        annotations:
+          summary: "AI exfiltration CRITICAL alert detected"
+          description: "Unauthorized large upload to AI service detected — see TheHive case"
+
+      - alert: TheHiveCaseSLABreachP1
+        expr: corpsec_thehive_open_case_age_seconds{severity="P1"} > 3600
+        for: 5m
+        labels:
+          severity: critical
+          team: soc-lead
+        annotations:
+          summary: "P1 case open >1 hour — SLA breach"
+          description: "Case {{ $labels.case_id }} severity P1 has been open longer than SLA target"
+
+      - alert: WazuhAgentOffline
+        expr: corpsec_wazuh_agent_status == 0
+        for: 15m
+        labels:
+          severity: warning
+          team: soc
+        annotations:
+          summary: "Wazuh agent {{ $labels.agent_name }} offline"
+          description: "Agent has not reported for 15 minutes — check endpoint health"

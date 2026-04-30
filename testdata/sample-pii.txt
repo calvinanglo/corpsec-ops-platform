@@ -1,0 +1,19 @@
+Sample test data for DLP scanner verification.
+This file contains intentional PII patterns for testing only.
+
+Customer record:
+  Name: Jane Doe
+  SSN: 234-56-7891
+  Credit card: 4532 1488 0343 6467
+  Phone: 415-22-3344  (this should NOT trigger SSN — phone number suppression)
+  Account number: 0123456789012345
+
+Test data (should be suppressed):
+  Test SSN: 123-45-6789  (known test value, suppressed)
+  Test card: 4111 1111 1111 1111  (Visa documentation test, suppressed)
+  Documentation example: AKIAIOSFODNN7EXAMPLE  (AWS docs example, suppressed)
+
+Legal notice:
+  This document is protected by attorney-client privilege.
+  Do not distribute outside the firm.
+  Matter #2024-001234, Client ID 78901

@@ -1,0 +1,25 @@
+{
+  "annotations": {"list": []}, "editable": true, "id": null, "links": [],
+  "panels": [
+    {
+      "datasource": {"type": "elasticsearch", "uid": "wazuh-indexer"},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0}, "id": 1,
+      "targets": [{"query": "rule.groups:dlp", "refId": "A", "metrics": [{"type": "count", "id": "1"}], "bucketAggs": [{"type": "terms", "field": "data.policy_id", "id": "2"}, {"type": "date_histogram", "field": "@timestamp", "id": "3"}]}],
+      "title": "DLP Alerts by Policy (over time)", "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "elasticsearch", "uid": "wazuh-indexer"},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0}, "id": 2,
+      "targets": [{"query": "rule.groups:dlp AND data.severity:CRITICAL", "refId": "A", "metrics": [{"type": "count", "id": "1"}], "bucketAggs": [{"type": "terms", "field": "data.user", "id": "2", "settings": {"size": "10"}}]}],
+      "title": "Top 10 Users — Critical DLP", "type": "barchart"
+    },
+    {
+      "datasource": {"type": "elasticsearch", "uid": "wazuh-indexer"},
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 8}, "id": 3,
+      "targets": [{"query": "rule.groups:dlp", "refId": "A", "metrics": [{"type": "raw_data", "id": "1", "settings": {"size": "100"}}]}],
+      "title": "DLP Alert Triage Queue", "type": "table"
+    }
+  ],
+  "refresh": "30s", "schemaVersion": 39, "tags": ["soc", "dlp"], "time": {"from": "now-24h", "to": "now"},
+  "title": "DLP Alerts", "uid": "dlp-alerts", "version": 1
+}

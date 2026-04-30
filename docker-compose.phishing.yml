@@ -1,0 +1,70 @@
+# ══════════════════════════════════════════════════════════════════════════════
+# corpsec-ops-platform — Phishing Simulation Overlay
+# GoPhish phishing platform + MailHog safe email capture
+# Usage: docker compose -f docker-compose.yml -f docker-compose.phishing.yml up -d
+# ══════════════════════════════════════════════════════════════════════════════
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+    tag: "{{.Name}}"
+
+x-healthcheck-defaults: &healthcheck-defaults
+  interval: 30s
+  timeout: 10s
+  retries: 3
+  start_period: 60s
+
+volumes:
+  corpsec-gophish-data:
+
+services:
+
+  gophish:
+    image: gophish/gophish:${GOPHISH_VERSION:-0.12.1}
+    container_name: corpsec-gophish
+    restart: unless-stopped
+    hostname: gophish
+    ports:
+      - "3333:3333"   # admin UI
+      - "8080:80"     # phishing landing pages
+    environment:
+      GOPHISH_INITIAL_ADMIN_PASSWORD: ${GOPHISH_ADMIN_PASSWORD}
+    volumes:
+      - corpsec-gophish-data:/opt/gophish/data
+      - ./gophish/config.json:/opt/gophish/config.json:ro
+      - ./gophish/templates:/opt/gophish/templates:ro
+    networks:
+      - corpsec-frontend
+      - corpsec-backend
+    depends_on:
+      mailhog:
+        condition: service_started
+    healthcheck:
+      <<: *healthcheck-defaults
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:3333/api/util/ping || exit 1"]
+    logging: *default-logging
+    deploy:
+      resources:
+        limits: { cpus: "0.25", memory: 256M }
+        reservations: { cpus: "0.05", memory: 64M }
+
+  mailhog:
+    image: mailhog/mailhog:${MAILHOG_VERSION:-v1.0.1}
+    container_name: corpsec-mailhog
+    restart: unless-stopped
+    hostname: mailhog
+    ports:
+      - "8025:8025"   # MailHog web UI for inspecting captured email
+    environment:
+      MH_STORAGE: maildir
+      MH_MAILDIR_PATH: /maildir
+    networks:
+      - corpsec-backend
+    logging: *default-logging
+    deploy:
+      resources:
+        limits: { cpus: "0.15", memory: 128M }
+        reservations: { cpus: "0.02", memory: 16M }

@@ -1,0 +1,35 @@
+{
+  "name": "WazuhAnalyzer",
+  "version": "1.0",
+  "author": "corpsec-ops-platform",
+  "url": "https://github.com/calvinanglo/corpsec-ops-platform",
+  "license": "MIT",
+  "description": "Query Wazuh manager for related alerts, agent status, FIM changes, vulnerabilities for a given observable (IP, hostname, or rule ID)",
+  "dataTypeList": ["ip", "hostname", "fqdn", "other"],
+  "command": "WazuhAnalyzer/wazuh_analyzer.py",
+  "baseConfig": "WazuhAnalyzer",
+  "configurationItems": [
+    {
+      "name": "wazuh_api_url",
+      "description": "Wazuh manager API URL",
+      "type": "string",
+      "multi": false,
+      "required": true,
+      "defaultValue": "https://wazuh-manager:55000"
+    },
+    {
+      "name": "wazuh_api_user",
+      "description": "Wazuh API username",
+      "type": "string",
+      "multi": false,
+      "required": true
+    },
+    {
+      "name": "wazuh_api_password",
+      "description": "Wazuh API password",
+      "type": "string",
+      "multi": false,
+      "required": true
+    }
+  ]
+}

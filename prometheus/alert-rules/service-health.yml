@@ -1,0 +1,31 @@
+groups:
+  - name: service-health
+    interval: 30s
+    rules:
+      - alert: ServiceDown
+        expr: up == 0
+        for: 5m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: "Service {{ $labels.job }} down on {{ $labels.instance }}"
+          description: "Prometheus has not been able to scrape {{ $labels.instance }} for 5 minutes"
+
+      - alert: HighMemoryUsage
+        expr: (container_memory_usage_bytes / container_spec_memory_limit_bytes) > 0.9
+        for: 10m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "Container {{ $labels.name }} memory >90% of limit"
+
+      - alert: WazuhIndexerDegraded
+        expr: corpsec_wazuh_indexer_health{status="red"} == 1
+        for: 5m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: "Wazuh indexer cluster status RED — alert ingestion impaired"

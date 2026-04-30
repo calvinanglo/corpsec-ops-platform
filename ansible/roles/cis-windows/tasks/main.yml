@@ -1,0 +1,39 @@
+---
+# Minimal CIS Windows baseline
+
+- name: CIS - enforce password complexity
+  win_security_policy:
+    section: System Access
+    key: PasswordComplexity
+    value: 1
+  tags: cis
+
+- name: CIS - require minimum password length 14
+  win_security_policy:
+    section: System Access
+    key: MinimumPasswordLength
+    value: 14
+  tags: cis
+
+- name: CIS - account lockout threshold 5
+  win_security_policy:
+    section: System Access
+    key: LockoutBadCount
+    value: 5
+  tags: cis
+
+- name: CIS - enable Windows Defender real-time protection
+  win_shell: Set-MpPreference -DisableRealtimeMonitoring $false
+  tags: cis
+
+- name: CIS - enable Windows Firewall on all profiles
+  win_shell: Set-NetFirewallProfile -Profile Domain,Public,Private -Enabled True
+  tags: cis
+
+- name: CIS - enable BitLocker on system drive (if not already enabled)
+  win_shell: |
+    if ((Get-BitLockerVolume -MountPoint 'C:').VolumeStatus -ne 'FullyEncrypted') {
+      Enable-BitLocker -MountPoint 'C:' -EncryptionMethod XtsAes256 -UsedSpaceOnly -SkipHardwareTest -RecoveryPasswordProtector
+    }
+  failed_when: false
+  tags: cis

@@ -1,0 +1,123 @@
+<!-- ════════════════════════════════════════════════════════════════════════════
+     corpsec-ops-platform — AI exfiltration detection rules
+     Rule range: 100200-100299
+     Source: python/ai_detection/detector.py output (jsonl)
+     Detects unauthorized corporate data movement to AI services
+     ════════════════════════════════════════════════════════════════════════════ -->
+<group name="ai_exfil,corpsec,">
+
+  <rule id="100200" level="3">
+    <decoded_as>json</decoded_as>
+    <field name="source">corpsec-ai-detection</field>
+    <description>AI detection: $(detection_type) for $(user)</description>
+    <options>no_full_log</options>
+  </rule>
+
+  <!-- ── DNS-based detection ──────────────────────────────────────────────── -->
+  <rule id="100210" level="6">
+    <if_sid>100200</if_sid>
+    <field name="detection_type">dns_query</field>
+    <field name="severity">LOW</field>
+    <description>AI: DNS query to $(ai_service) by $(user) - informational</description>
+  </rule>
+
+  <rule id="100211" level="9">
+    <if_sid>100200</if_sid>
+    <field name="detection_type">dns_query</field>
+    <field name="severity">MEDIUM</field>
+    <description>AI: 5+ DNS queries to $(ai_service) by $(user) in 10 minutes - active session</description>
+  </rule>
+
+  <rule id="100212" level="11">
+    <if_sid>100200</if_sid>
+    <field name="detection_type">dns_query</field>
+    <field name="severity">HIGH</field>
+    <description>AI: 20+ DNS queries to $(ai_service) by $(user) in 1 hour - possible automation</description>
+  </rule>
+
+  <!-- ── Proxy/upload detection ───────────────────────────────────────────── -->
+  <rule id="100201" level="11">
+    <if_sid>100200</if_sid>
+    <field name="detection_type">proxy_upload</field>
+    <field name="ai_service_authorized">false</field>
+    <field name="upload_bytes">^[1-9][0-9]{4,}$</field>
+    <description>AI: Upload to unauthorized AI service - $(ai_service) - $(upload_bytes) bytes by $(user)</description>
+    <mitre>
+      <id>T1567</id>
+    </mitre>
+  </rule>
+
+  <rule id="100202" level="13">
+    <if_sid>100200</if_sid>
+    <field name="detection_type">proxy_upload</field>
+    <field name="ai_service_authorized">false</field>
+    <field name="upload_bytes">^[1-9][0-9]{6,}$</field>
+    <description>AI CRITICAL: Large upload (&gt;1MB) to unauthorized AI - $(ai_service) by $(user)</description>
+    <mitre>
+      <id>T1567</id>
+    </mitre>
+    <group>data_exfiltration,critical,</group>
+  </rule>
+
+  <rule id="100203" level="14">
+    <if_sid>100200</if_sid>
+    <field name="detection_type">correlated</field>
+    <description>AI CORRELATED: Multi-vector exfil - $(event_count) events from $(user) within $(window_minutes) min</description>
+    <mitre>
+      <id>T1567</id>
+    </mitre>
+    <group>data_exfiltration,critical,correlated,</group>
+  </rule>
+
+  <!-- ── Service-specific detections ──────────────────────────────────────── -->
+  <rule id="100220" level="11">
+    <if_sid>100200</if_sid>
+    <field name="ai_service">chatgpt|chat.openai.com</field>
+    <field name="ai_service_authorized">false</field>
+    <description>AI: Personal ChatGPT usage detected - $(user) - $(upload_bytes) bytes</description>
+  </rule>
+
+  <rule id="100221" level="11">
+    <if_sid>100200</if_sid>
+    <field name="ai_service">deepseek.com|chat.deepseek.com</field>
+    <field name="ai_service_authorized">false</field>
+    <description>AI: Personal DeepSeek usage detected - $(user) - $(upload_bytes) bytes</description>
+  </rule>
+
+  <rule id="100222" level="11">
+    <if_sid>100200</if_sid>
+    <field name="ai_service">gemini.google.com|generativelanguage.googleapis.com</field>
+    <field name="ai_service_authorized">false</field>
+    <description>AI: Personal Gemini usage detected - $(user) - $(upload_bytes) bytes</description>
+  </rule>
+
+  <rule id="100223" level="11">
+    <if_sid>100200</if_sid>
+    <field name="ai_service">copilot.microsoft.com|api.cognitive.microsofttranslator.com</field>
+    <field name="ai_service_authorized">false</field>
+    <description>AI: Personal Copilot usage detected - $(user) - $(upload_bytes) bytes</description>
+  </rule>
+
+  <rule id="100224" level="10">
+    <if_sid>100200</if_sid>
+    <field name="ai_service">perplexity.ai|api.perplexity.ai</field>
+    <field name="ai_service_authorized">false</field>
+    <description>AI: Personal Perplexity usage detected - $(user)</description>
+  </rule>
+
+  <!-- ── Time-of-day modifier ──────────────────────────────────────────────── -->
+  <rule id="100230" level="12">
+    <if_sid>100200</if_sid>
+    <field name="after_hours">true</field>
+    <field name="severity">MEDIUM|HIGH</field>
+    <description>AI: After-hours AI access - $(user) at $(timestamp) - severity boosted</description>
+  </rule>
+
+  <!-- ── Unknown AI service ──────────────────────────────────────────────── -->
+  <rule id="100240" level="8">
+    <if_sid>100200</if_sid>
+    <field name="ai_service_classification">unknown</field>
+    <description>AI: Unknown AI service detected - $(ai_service) by $(user) - classify and update registry</description>
+  </rule>
+
+</group>

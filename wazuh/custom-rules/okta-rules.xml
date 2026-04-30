@@ -1,0 +1,165 @@
+<!-- ════════════════════════════════════════════════════════════════════════════
+     corpsec-ops-platform — Okta detection rules
+     Rule range: 100000-100099
+     Source: Okta System Log API (streamed by integrations/okta/log_streamer.py)
+     ════════════════════════════════════════════════════════════════════════════ -->
+<group name="okta,corpsec,">
+
+  <rule id="100000" level="3">
+    <decoded_as>json</decoded_as>
+    <field name="source">okta</field>
+    <description>Okta: $(eventType) for $(actor.alternateId)</description>
+    <options>no_full_log</options>
+  </rule>
+
+  <!-- ── Authentication Failures ──────────────────────────────────────────── -->
+  <rule id="100001" level="5">
+    <if_sid>100000</if_sid>
+    <field name="eventType">user.session.start</field>
+    <field name="outcome.result">FAILURE</field>
+    <description>Okta: Failed login for $(actor.alternateId) from $(client.ipAddress)</description>
+    <mitre>
+      <id>T1110</id>
+    </mitre>
+  </rule>
+
+  <rule id="100002" level="10" frequency="5" timeframe="300">
+    <if_matched_sid>100001</if_matched_sid>
+    <same_field>actor.alternateId</same_field>
+    <description>Okta: Brute force - 5+ failed logins for $(actor.alternateId) in 5 minutes</description>
+    <mitre>
+      <id>T1110.001</id>
+    </mitre>
+    <group>brute_force,authentication_failed,</group>
+  </rule>
+
+  <rule id="100003" level="12" frequency="10" timeframe="600">
+    <if_matched_sid>100001</if_matched_sid>
+    <same_field>client.ipAddress</same_field>
+    <description>Okta: Password spray - 10+ failed logins from $(client.ipAddress) targeting multiple users</description>
+    <mitre>
+      <id>T1110.003</id>
+    </mitre>
+    <group>password_spray,</group>
+  </rule>
+
+  <!-- ── MFA-Related ──────────────────────────────────────────────────────── -->
+  <rule id="100010" level="7">
+    <if_sid>100000</if_sid>
+    <field name="eventType">user.mfa.factor.deactivate</field>
+    <description>Okta: MFA factor deactivated for $(actor.alternateId) - possible account takeover prep</description>
+    <mitre>
+      <id>T1556.006</id>
+    </mitre>
+  </rule>
+
+  <rule id="100011" level="10" frequency="5" timeframe="300">
+    <if_sid>100000</if_sid>
+    <field name="eventType">user.authentication.auth_via_mfa</field>
+    <field name="outcome.result">FAILURE</field>
+    <same_field>actor.alternateId</same_field>
+    <description>Okta: MFA fatigue attack - 5+ MFA challenges for $(actor.alternateId) in 5 minutes</description>
+    <mitre>
+      <id>T1621</id>
+    </mitre>
+  </rule>
+
+  <!-- ── Suspicious Sign-Ins ──────────────────────────────────────────────── -->
+  <rule id="100020" level="10">
+    <if_sid>100000</if_sid>
+    <field name="eventType">user.session.start</field>
+    <field name="outcome.result">SUCCESS</field>
+    <field name="securityContext.isProxy">true</field>
+    <description>Okta: Successful login from anonymizing proxy/Tor for $(actor.alternateId)</description>
+    <mitre>
+      <id>T1090</id>
+    </mitre>
+  </rule>
+
+  <rule id="100021" level="12">
+    <if_sid>100000</if_sid>
+    <field name="eventType">user.session.start</field>
+    <field name="debugContext.debugData.behaviors">Velocity=POSITIVE</field>
+    <description>Okta: Impossible travel detected for $(actor.alternateId) - login from $(client.geographicalContext.country)</description>
+    <mitre>
+      <id>T1078</id>
+    </mitre>
+    <group>impossible_travel,</group>
+  </rule>
+
+  <!-- ── Privilege Escalation ─────────────────────────────────────────────── -->
+  <rule id="100030" level="10">
+    <if_sid>100000</if_sid>
+    <field name="eventType">group.user_membership.add</field>
+    <field name="target.displayName">SuperAdmins|Administrators|Okta Administrators</field>
+    <description>Okta: User $(target.alternateId) added to admin group $(target.displayName)</description>
+    <mitre>
+      <id>T1098</id>
+    </mitre>
+    <group>privilege_escalation,</group>
+  </rule>
+
+  <rule id="100031" level="10">
+    <if_sid>100000</if_sid>
+    <field name="eventType">user.account.privilege.grant</field>
+    <description>Okta: Admin privilege granted to $(target.alternateId) by $(actor.alternateId)</description>
+    <mitre>
+      <id>T1098</id>
+    </mitre>
+  </rule>
+
+  <!-- ── API Token / OAuth Abuse ──────────────────────────────────────────── -->
+  <rule id="100040" level="8">
+    <if_sid>100000</if_sid>
+    <field name="eventType">system.api_token.create</field>
+    <description>Okta: New API token created by $(actor.alternateId) - audit for legitimacy</description>
+  </rule>
+
+  <rule id="100041" level="10">
+    <if_sid>100000</if_sid>
+    <field name="eventType">app.oauth2.token.grant.access_token</field>
+    <field name="outcome.result">SUCCESS</field>
+    <field name="debugContext.debugData.grantType">refresh_token</field>
+    <description>Okta: OAuth refresh token used - $(actor.alternateId) for app $(target.displayName)</description>
+  </rule>
+
+  <!-- ── Account Lifecycle ────────────────────────────────────────────────── -->
+  <rule id="100050" level="5">
+    <if_sid>100000</if_sid>
+    <field name="eventType">user.lifecycle.create</field>
+    <description>Okta: New user $(target.alternateId) created by $(actor.alternateId)</description>
+  </rule>
+
+  <rule id="100051" level="7">
+    <if_sid>100000</if_sid>
+    <field name="eventType">user.lifecycle.delete</field>
+    <description>Okta: User $(target.alternateId) deleted by $(actor.alternateId)</description>
+  </rule>
+
+  <rule id="100052" level="8">
+    <if_sid>100000</if_sid>
+    <field name="eventType">user.lifecycle.deactivate</field>
+    <description>Okta: User $(target.alternateId) deactivated - leaver workflow trigger</description>
+  </rule>
+
+  <!-- ── Policy Changes ───────────────────────────────────────────────────── -->
+  <rule id="100060" level="10">
+    <if_sid>100000</if_sid>
+    <field name="eventType">policy.lifecycle.update</field>
+    <description>Okta: Sign-on/MFA policy modified by $(actor.alternateId) - $(target.displayName)</description>
+    <mitre>
+      <id>T1556</id>
+    </mitre>
+    <group>policy_change,</group>
+  </rule>
+
+  <rule id="100061" level="10">
+    <if_sid>100000</if_sid>
+    <field name="eventType">policy.rule.deactivate</field>
+    <description>Okta: Security policy rule deactivated by $(actor.alternateId) - investigate</description>
+    <mitre>
+      <id>T1562.001</id>
+    </mitre>
+  </rule>
+
+</group>

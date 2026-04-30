@@ -1,0 +1,46 @@
+{
+  "annotations": {"list": []}, "editable": true, "id": null, "links": [],
+  "panels": [
+    {
+      "datasource": {"type": "elasticsearch", "uid": "wazuh-indexer"},
+      "gridPos": {"h": 6, "w": 6, "x": 0, "y": 0}, "id": 1,
+      "title": "Okta Events (24h)", "type": "stat",
+      "targets": [{"query": "rule.groups:okta", "metrics": [{"type": "count", "id": "1"}], "refId": "A"}]
+    },
+    {
+      "datasource": {"type": "elasticsearch", "uid": "wazuh-indexer"},
+      "gridPos": {"h": 6, "w": 6, "x": 6, "y": 0}, "id": 2,
+      "title": "CrowdStrike Detections (24h)", "type": "stat",
+      "targets": [{"query": "rule.groups:crowdstrike", "metrics": [{"type": "count", "id": "1"}], "refId": "A"}]
+    },
+    {
+      "datasource": {"type": "elasticsearch", "uid": "wazuh-indexer"},
+      "gridPos": {"h": 6, "w": 6, "x": 12, "y": 0}, "id": 3,
+      "title": "GWS Audit Events (24h)", "type": "stat",
+      "targets": [{"query": "rule.groups:google_workspace", "metrics": [{"type": "count", "id": "1"}], "refId": "A"}]
+    },
+    {
+      "datasource": {"type": "elasticsearch", "uid": "wazuh-indexer"},
+      "gridPos": {"h": 6, "w": 6, "x": 18, "y": 0}, "id": 4,
+      "title": "Intune Device Events (24h)", "type": "stat",
+      "targets": [{"query": "rule.groups:intune", "metrics": [{"type": "count", "id": "1"}], "refId": "A"}]
+    },
+    {
+      "datasource": {"type": "elasticsearch", "uid": "wazuh-indexer"},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 6}, "id": 5,
+      "title": "Top Okta Sign-In Failures by User",
+      "type": "barchart",
+      "targets": [{"query": "rule.id:100001", "metrics": [{"type": "count", "id": "1"}], "bucketAggs": [{"type": "terms", "field": "data.actor.alternateId", "id": "2", "settings": {"size": "10"}}], "refId": "A"}]
+    },
+    {
+      "datasource": {"type": "elasticsearch", "uid": "wazuh-indexer"},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 6}, "id": 6,
+      "title": "Intune Non-Compliant Devices",
+      "type": "table",
+      "targets": [{"query": "rule.id:100610 OR rule.id:100611 OR rule.id:100612", "metrics": [{"type": "raw_data", "id": "1", "settings": {"size": "50"}}], "refId": "A"}]
+    }
+  ],
+  "refresh": "30s", "schemaVersion": 39, "tags": ["soc", "production-tools"],
+  "time": {"from": "now-24h", "to": "now"},
+  "title": "Production Tools — Aggregated View", "uid": "production-tools", "version": 1
+}

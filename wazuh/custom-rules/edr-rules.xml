@@ -1,0 +1,134 @@
+<!-- ════════════════════════════════════════════════════════════════════════════
+     corpsec-ops-platform — EDR detection rules (Wazuh-native EDR)
+     Rule range: 100700-100799
+     Complements CrowdStrike via Wazuh's own FIM, rootcheck, syscollector
+     ════════════════════════════════════════════════════════════════════════════ -->
+<group name="edr,corpsec,">
+
+  <!-- ── Suspicious process execution ─────────────────────────────────────── -->
+  <rule id="100700" level="11">
+    <if_sid>61603,61604</if_sid>
+    <field name="data.win.eventdata.commandLine" type="pcre2">(?i)(powershell.*-enc|powershell.*-encodedcommand|powershell.*-noprofile.*-windowstyle hidden)</field>
+    <description>EDR: Suspicious encoded PowerShell on $(agent.name) - obfuscation indicator</description>
+    <mitre>
+      <id>T1059.001</id>
+      <id>T1027</id>
+    </mitre>
+  </rule>
+
+  <rule id="100701" level="12">
+    <if_sid>61603,61604</if_sid>
+    <field name="data.win.eventdata.image" type="pcre2">(?i)(certutil|bitsadmin|regsvr32|mshta|wscript)\.exe$</field>
+    <field name="data.win.eventdata.commandLine" type="pcre2">(?i)(http|https|urlcache|decode)</field>
+    <description>EDR: LOLBAS abuse on $(agent.name) - $(data.win.eventdata.image) used for download/decode</description>
+    <mitre>
+      <id>T1218</id>
+    </mitre>
+  </rule>
+
+  <rule id="100702" level="11">
+    <if_sid>61603,61604</if_sid>
+    <field name="data.win.eventdata.image" type="pcre2">(?i)(rundll32|regsvr32)\.exe$</field>
+    <field name="data.win.eventdata.commandLine" type="pcre2">(?i)\\\\.*\\.dll</field>
+    <description>EDR: Rundll32/regsvr32 loading remote DLL on $(agent.name)</description>
+    <mitre>
+      <id>T1218.011</id>
+    </mitre>
+  </rule>
+
+  <!-- ── Persistence mechanisms ───────────────────────────────────────────── -->
+  <rule id="100710" level="10">
+    <if_sid>61603,61604</if_sid>
+    <field name="data.win.eventdata.commandLine" type="pcre2">(?i)(schtasks|at\.exe).*(?:/create|/sc|/tr)</field>
+    <description>EDR: Scheduled task created on $(agent.name) - persistence indicator</description>
+    <mitre>
+      <id>T1053.005</id>
+    </mitre>
+  </rule>
+
+  <rule id="100711" level="10">
+    <if_sid>61603,61604</if_sid>
+    <field name="data.win.eventdata.commandLine" type="pcre2">(?i)(reg\.exe|powershell).*(?:HKLM|HKCU).*(?:Run|RunOnce|Image File Execution Options)</field>
+    <description>EDR: Registry persistence created on $(agent.name)</description>
+    <mitre>
+      <id>T1547.001</id>
+    </mitre>
+  </rule>
+
+  <rule id="100712" level="11">
+    <if_sid>61603,61604</if_sid>
+    <field name="data.win.eventdata.commandLine" type="pcre2">(?i)(sc\.exe|sc create|new-service).*(?:start.*auto|start=auto)</field>
+    <description>EDR: Auto-start service created on $(agent.name) - persistence</description>
+    <mitre>
+      <id>T1543.003</id>
+    </mitre>
+  </rule>
+
+  <!-- ── Defense evasion ──────────────────────────────────────────────────── -->
+  <rule id="100720" level="13">
+    <if_sid>61603,61604</if_sid>
+    <field name="data.win.eventdata.commandLine" type="pcre2">(?i)(wevtutil.*cl|clear-eventlog)</field>
+    <description>EDR: Event log cleared on $(agent.name) - anti-forensics</description>
+    <mitre>
+      <id>T1070.001</id>
+    </mitre>
+  </rule>
+
+  <rule id="100721" level="12">
+    <if_sid>61603,61604</if_sid>
+    <field name="data.win.eventdata.commandLine" type="pcre2">(?i)(vssadmin.*delete|wmic.*shadowcopy.*delete|bcdedit.*recoveryenabled.*no)</field>
+    <description>EDR: Shadow copy deletion on $(agent.name) - ransomware indicator</description>
+    <mitre>
+      <id>T1490</id>
+    </mitre>
+  </rule>
+
+  <rule id="100722" level="12">
+    <if_sid>61603,61604</if_sid>
+    <field name="data.win.eventdata.commandLine" type="pcre2">(?i)Set-MpPreference.*-DisableRealtimeMonitoring.*\$true</field>
+    <description>EDR: Defender real-time protection disabled on $(agent.name)</description>
+    <mitre>
+      <id>T1562.001</id>
+    </mitre>
+  </rule>
+
+  <!-- ── Credential access ────────────────────────────────────────────────── -->
+  <rule id="100730" level="13">
+    <if_sid>61603,61604</if_sid>
+    <field name="data.win.eventdata.commandLine" type="pcre2">(?i)(mimikatz|sekurlsa::|lsadump::|kerberos::)</field>
+    <description>EDR: Mimikatz indicators on $(agent.name)</description>
+    <mitre>
+      <id>T1003.001</id>
+    </mitre>
+  </rule>
+
+  <rule id="100731" level="12">
+    <if_sid>61603,61604</if_sid>
+    <field name="data.win.eventdata.commandLine" type="pcre2">(?i)(rundll32.*comsvcs.*minidump|procdump.*lsass)</field>
+    <description>EDR: LSASS dumping attempt on $(agent.name)</description>
+    <mitre>
+      <id>T1003.001</id>
+    </mitre>
+  </rule>
+
+  <!-- ── FIM-based detections ─────────────────────────────────────────────── -->
+  <rule id="100740" level="11">
+    <if_sid>550,553,554</if_sid>
+    <field name="syscheck.path" type="pcre2">^/legal/|^/client-data/|^/finance/</field>
+    <field name="syscheck.event">deleted</field>
+    <description>FIM: Sensitive file deleted - $(syscheck.path) on $(agent.name)</description>
+    <mitre>
+      <id>T1485</id>
+    </mitre>
+  </rule>
+
+  <rule id="100741" level="9">
+    <if_sid>550,553,554</if_sid>
+    <field name="syscheck.path" type="pcre2">^/etc/(passwd|shadow|sudoers)</field>
+    <description>FIM: Critical authentication file modified - $(syscheck.path)</description>
+    <mitre>
+      <id>T1098</id>
+    </mitre>
+  </rule>
+
+</group>

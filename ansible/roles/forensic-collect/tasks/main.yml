@@ -1,0 +1,174 @@
+---
+# forensic-collect role
+# Captures detailed forensic artifacts from a target host into /tmp/corpsec-evidence/
+# Designed to be run after incident-contain.yml has isolated the host
+
+- name: Create local evidence directory
+  file:
+    path: /tmp/corpsec-evidence
+    state: directory
+    mode: "0700"
+
+# ── Common (all OS) — base manifest ──
+- name: Capture system information
+  shell: |
+    {
+      echo "=== Hostname ==="; hostname
+      echo "=== Date ==="; date -Iseconds
+      echo "=== Uptime ==="; uptime
+      echo "=== OS ==="; uname -a
+    } > /tmp/corpsec-evidence/00-system-info.txt
+  changed_when: true
+  when: ansible_os_family != "Windows"
+
+# ── Linux/macOS artifacts ─────────────────────────────────────────────────
+- name: Capture process snapshot
+  shell: ps auxefww > /tmp/corpsec-evidence/01-processes.txt
+  changed_when: true
+  when: ansible_os_family != "Windows"
+
+- name: Capture network connections
+  shell: ss -tulnpe > /tmp/corpsec-evidence/02-netstat.txt 2>&1 || netstat -tulnpe > /tmp/corpsec-evidence/02-netstat.txt 2>&1 || true
+  changed_when: true
+  when: ansible_os_family != "Windows"
+
+- name: Capture loaded kernel modules
+  shell: lsmod > /tmp/corpsec-evidence/03-lsmod.txt
+  changed_when: true
+  when: ansible_os_family == "RedHat" or ansible_os_family == "Debian"
+
+- name: Capture open file descriptors
+  shell: lsof > /tmp/corpsec-evidence/04-lsof.txt 2>/dev/null || true
+  changed_when: true
+  when: ansible_os_family != "Windows"
+
+- name: Capture cron jobs (system + per-user)
+  shell: |
+    {
+      echo "=== /etc/crontab ==="
+      cat /etc/crontab 2>/dev/null
+      echo
+      echo "=== /etc/cron.d/* ==="
+      cat /etc/cron.d/* 2>/dev/null
+      echo
+      for u in $(cut -d: -f1 /etc/passwd); do
+        crontab -u "$u" -l 2>/dev/null | sed "s|^|[$u] |"
+      done
+    } > /tmp/corpsec-evidence/05-cron.txt
+  changed_when: true
+  when: ansible_os_family != "Windows"
+
+- name: Capture systemd services
+  shell: systemctl list-units --type=service --all > /tmp/corpsec-evidence/06-services.txt 2>&1 || true
+  changed_when: true
+  when: ansible_os_family != "Windows"
+
+- name: Files modified in last 7 days (Linux/macOS)
+  shell: find / -type f -mtime -7 -not -path '/proc/*' -not -path '/sys/*' -not -path '/run/*' 2>/dev/null > /tmp/corpsec-evidence/07-recent-files.txt
+  changed_when: true
+  when: ansible_os_family != "Windows"
+
+- name: Capture auth logs
+  shell: |
+    cp /var/log/auth.log /tmp/corpsec-evidence/08-auth.log 2>/dev/null || \
+    cp /var/log/secure /tmp/corpsec-evidence/08-auth.log 2>/dev/null || true
+  changed_when: true
+  when: ansible_os_family != "Windows"
+
+- name: Capture sudo log
+  shell: cp /var/log/sudo.log /tmp/corpsec-evidence/09-sudo.log 2>/dev/null || true
+  changed_when: true
+  when: ansible_os_family != "Windows"
+
+- name: Capture login history
+  shell: |
+    {
+      echo "=== last ==="; last -n 100 2>/dev/null
+      echo "=== lastlog ==="; lastlog 2>/dev/null
+      echo "=== lastb (failed) ==="; lastb -n 100 2>/dev/null
+    } > /tmp/corpsec-evidence/10-login-history.txt
+  changed_when: true
+  when: ansible_os_family != "Windows"
+
+- name: Wazuh agent alert history (if present)
+  shell: tail -n 1000 /var/ossec/logs/alerts/alerts.json > /tmp/corpsec-evidence/11-wazuh-alerts.json 2>/dev/null || true
+  changed_when: true
+  when: ansible_os_family != "Windows"
+
+# ── Windows artifacts ─────────────────────────────────────────────────────
+- name: Capture Windows process snapshot
+  win_shell: Get-CimInstance Win32_Process | Select-Object Name,ProcessId,ParentProcessId,CommandLine,CreationDate | Format-Table -Wrap
+  register: win_processes
+  when: ansible_os_family == "Windows"
+
+- name: Save Windows process snapshot
+  win_copy:
+    content: "{{ win_processes.stdout }}"
+    dest: C:\Temp\corpsec-evidence\01-processes.txt
+  when: ansible_os_family == "Windows"
+
+- name: Capture Windows network connections
+  win_shell: Get-NetTCPConnection | Format-Table -Wrap
+  register: win_netstat
+  when: ansible_os_family == "Windows"
+
+- name: Save Windows netstat
+  win_copy:
+    content: "{{ win_netstat.stdout }}"
+    dest: C:\Temp\corpsec-evidence\02-netstat.txt
+  when: ansible_os_family == "Windows"
+
+- name: Capture Windows scheduled tasks
+  win_shell: Get-ScheduledTask | Where-Object {$_.State -ne 'Disabled'} | Select-Object TaskName,TaskPath,State,Author | Format-Table -Wrap
+  register: win_schedtasks
+  when: ansible_os_family == "Windows"
+
+- name: Save Windows scheduled tasks
+  win_copy:
+    content: "{{ win_schedtasks.stdout }}"
+    dest: C:\Temp\corpsec-evidence\05-scheduled-tasks.txt
+  when: ansible_os_family == "Windows"
+
+- name: Capture Windows services
+  win_shell: Get-Service | Where-Object {$_.Status -eq 'Running'} | Format-Table -Wrap
+  register: win_services
+  when: ansible_os_family == "Windows"
+
+- name: Save Windows services
+  win_copy:
+    content: "{{ win_services.stdout }}"
+    dest: C:\Temp\corpsec-evidence\06-services.txt
+  when: ansible_os_family == "Windows"
+
+- name: Capture Windows recent file modifications
+  win_shell: Get-ChildItem -Path C:\ -Recurse -ErrorAction SilentlyContinue | Where-Object {$_.LastWriteTime -gt (Get-Date).AddDays(-7)} | Select-Object FullName,LastWriteTime | Out-String -Width 500
+  register: win_recent
+  when: ansible_os_family == "Windows"
+
+- name: Save Windows recent files
+  win_copy:
+    content: "{{ win_recent.stdout }}"
+    dest: C:\Temp\corpsec-evidence\07-recent-files.txt
+  when: ansible_os_family == "Windows"
+
+- name: Export Windows event logs (Security, System, Application)
+  win_shell: |
+    wevtutil epl Security C:\Temp\corpsec-evidence\08-security-events.evtx /q:"*[System[TimeCreated[timediff(@SystemTime) <= 604800000]]]"
+    wevtutil epl System C:\Temp\corpsec-evidence\09-system-events.evtx
+    wevtutil epl Application C:\Temp\corpsec-evidence\10-application-events.evtx
+  when: ansible_os_family == "Windows"
+
+# ── Compute SHA-256 manifest on host before pull ──
+- name: Generate evidence MANIFEST.sha256 (Linux/macOS)
+  shell: |
+    cd /tmp/corpsec-evidence && find . -type f ! -name MANIFEST.sha256 -exec sha256sum {} \; > MANIFEST.sha256
+  changed_when: true
+  when: ansible_os_family != "Windows"
+
+- name: Generate evidence MANIFEST.sha256 (Windows)
+  win_shell: |
+    Get-ChildItem -Path C:\Temp\corpsec-evidence -File | ForEach-Object {
+      $hash = (Get-FileHash -Path $_.FullName -Algorithm SHA256).Hash
+      "$hash  $($_.Name)"
+    } | Out-File -FilePath C:\Temp\corpsec-evidence\MANIFEST.sha256 -Encoding utf8
+  when: ansible_os_family == "Windows"

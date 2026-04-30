@@ -1,0 +1,47 @@
+# ══════════════════════════════════════════════════════════════════════════════
+# corpsec-ops-platform — Alertmanager routing
+# ══════════════════════════════════════════════════════════════════════════════
+global:
+  resolve_timeout: 5m
+  slack_api_url: "${ALERTMANAGER_SLACK_WEBHOOK}"
+
+route:
+  receiver: "soc-default"
+  group_by: ["alertname", "team"]
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+  routes:
+    - match: {severity: critical}
+      receiver: "soc-critical"
+      group_wait: 10s
+      repeat_interval: 30m
+      continue: true
+    - match: {team: soc-lead}
+      receiver: "soc-lead"
+
+receivers:
+  - name: "soc-default"
+    slack_configs:
+      - channel: "#soc-alerts"
+        title: "[{{ .Status | toUpper }}] {{ .CommonLabels.alertname }}"
+        text: "{{ range .Alerts }}{{ .Annotations.summary }}\n{{ .Annotations.description }}\n{{ end }}"
+        send_resolved: true
+
+  - name: "soc-critical"
+    slack_configs:
+      - channel: "#soc-critical"
+        title: ":rotating_light: CRITICAL [{{ .Status | toUpper }}] {{ .CommonLabels.alertname }}"
+        text: "{{ range .Alerts }}{{ .Annotations.summary }}\n{{ .Annotations.description }}\n{{ end }}"
+        send_resolved: true
+
+  - name: "soc-lead"
+    slack_configs:
+      - channel: "#soc-lead"
+        title: "[SOC-LEAD] {{ .CommonLabels.alertname }}"
+        text: "{{ range .Alerts }}{{ .Annotations.summary }}{{ end }}"
+
+inhibit_rules:
+  - source_match: {severity: critical}
+    target_match: {severity: warning}
+    equal: ["alertname", "instance"]

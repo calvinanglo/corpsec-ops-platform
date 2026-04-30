@@ -1,0 +1,125 @@
+<!-- ════════════════════════════════════════════════════════════════════════════
+     corpsec-ops-platform — DLP detection rules
+     Rule range: 100100-100199
+     Source: python/dlp/engine.py output (jsonl) + GWS DLP events
+     ════════════════════════════════════════════════════════════════════════════ -->
+<group name="dlp,corpsec,">
+
+  <rule id="100100" level="3">
+    <decoded_as>json</decoded_as>
+    <field name="source">corpsec-dlp</field>
+    <description>DLP: $(policy_id) match for $(user)</description>
+    <options>no_full_log</options>
+  </rule>
+
+  <!-- ── Severity-based ───────────────────────────────────────────────────── -->
+  <rule id="100101" level="7">
+    <if_sid>100100</if_sid>
+    <field name="severity">LOW</field>
+    <description>DLP LOW: $(policy_name) - $(user) - confidence $(confidence)</description>
+  </rule>
+
+  <rule id="100102" level="10">
+    <if_sid>100100</if_sid>
+    <field name="severity">HIGH</field>
+    <description>DLP HIGH: $(policy_name) - $(user) attempting $(action) - confidence $(confidence)</description>
+    <group>data_loss,</group>
+  </rule>
+
+  <rule id="100103" level="13">
+    <if_sid>100100</if_sid>
+    <field name="severity">CRITICAL</field>
+    <description>DLP CRITICAL: $(policy_name) - $(user) - $(matched_count) violations - PRIORITY RESPONSE</description>
+    <group>data_loss,critical,</group>
+  </rule>
+
+  <!-- ── Policy-specific ──────────────────────────────────────────────────── -->
+  <rule id="100110" level="10">
+    <if_sid>100100</if_sid>
+    <field name="policy_id">PII-001</field>
+    <description>DLP: SSN detected in $(file_path) accessed by $(user)</description>
+  </rule>
+
+  <rule id="100111" level="10">
+    <if_sid>100100</if_sid>
+    <field name="policy_id">PII-002</field>
+    <description>DLP: Credit card (Luhn-validated) in $(file_path) - $(user)</description>
+  </rule>
+
+  <rule id="100112" level="11">
+    <if_sid>100100</if_sid>
+    <field name="policy_id">PII-003</field>
+    <description>DLP: Bulk email harvest detected - $(matched_count) emails extracted by $(user)</description>
+  </rule>
+
+  <rule id="100113" level="10">
+    <if_sid>100100</if_sid>
+    <field name="policy_id">PII-004</field>
+    <description>DLP: Canadian SIN detected in $(file_path) - $(user)</description>
+  </rule>
+
+  <rule id="100120" level="12">
+    <if_sid>100100</if_sid>
+    <field name="policy_id">LEGAL-001</field>
+    <description>DLP: Attorney-client privilege content detected - $(file_path) - $(user)</description>
+    <group>legal,privileged,</group>
+  </rule>
+
+  <rule id="100121" level="11">
+    <if_sid>100100</if_sid>
+    <field name="policy_id">LEGAL-002</field>
+    <description>DLP: Client matter ID detected outside authorized vault - $(matter_id) by $(user)</description>
+  </rule>
+
+  <rule id="100130" level="11">
+    <if_sid>100100</if_sid>
+    <field name="policy_id">CODE-001</field>
+    <description>DLP: API key/secret detected in non-code file - $(secret_type) in $(file_path)</description>
+    <mitre>
+      <id>T1552.001</id>
+    </mitre>
+  </rule>
+
+  <rule id="100140" level="10">
+    <if_sid>100100</if_sid>
+    <field name="policy_id">FIN-001</field>
+    <description>DLP: Bank routing/account number detected - $(file_path) - $(user)</description>
+  </rule>
+
+  <!-- ── Destination-aware ────────────────────────────────────────────────── -->
+  <rule id="100150" level="13">
+    <if_sid>100100</if_sid>
+    <field name="destination_type">external_email</field>
+    <field name="severity">HIGH|CRITICAL</field>
+    <description>DLP: Sensitive data sent to external email - $(destination) by $(user)</description>
+    <group>data_exfiltration,</group>
+  </rule>
+
+  <rule id="100151" level="13">
+    <if_sid>100100</if_sid>
+    <field name="destination_type">removable_media</field>
+    <description>DLP: Sensitive data copied to removable media by $(user) - $(volume_label)</description>
+    <mitre>
+      <id>T1052.001</id>
+    </mitre>
+  </rule>
+
+  <rule id="100152" level="13">
+    <if_sid>100100</if_sid>
+    <field name="destination_type">cloud_storage</field>
+    <field name="destination_authorized">false</field>
+    <description>DLP: Sensitive data uploaded to unauthorized cloud storage - $(destination) by $(user)</description>
+    <mitre>
+      <id>T1567.002</id>
+    </mitre>
+  </rule>
+
+  <!-- ── Behavior-based ───────────────────────────────────────────────────── -->
+  <rule id="100160" level="11" frequency="3" timeframe="3600">
+    <if_matched_sid>100102</if_matched_sid>
+    <same_field>user</same_field>
+    <description>DLP: Repeat violator - $(user) triggered 3+ HIGH alerts in 1 hour</description>
+    <group>repeat_violator,</group>
+  </rule>
+
+</group>
