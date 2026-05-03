@@ -96,3 +96,5 @@ screenshots/**/_drafts/
 # Trial credentials (NEVER commit)
 trial-credentials.txt
 api-keys.txt
+okta-test-user-passwords.txt
+.tmp-okta/
